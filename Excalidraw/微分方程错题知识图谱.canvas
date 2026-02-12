@@ -1,0 +1,101 @@
+{
+	"nodes": [
+		{
+			"id": "group_center",
+			"type": "group",
+			"x": -600,
+			"y": -400,
+			"width": 1400,
+			"height": 900,
+			"label": "微分方程错题归纳"
+		},
+		{
+			"id": "node_center",
+			"type": "text",
+			"text": "# 微分方程核心体系\n\n- 识别方程类型是关键\n- 熟练掌握通解公式\n- 注意初始条件",
+			"x": 0,
+			"y": 0,
+			"width": 250,
+			"height": 150,
+			"color": "3"
+		},
+		{
+			"id": "node_branch1",
+			"type": "text",
+			"text": "## 一阶微分方程\n\n1. **可分离变量**: $g(y)dy = f(x)dx$\n2. **齐次**: $y' = \\varphi(y/x)$\n3. **一阶线性**: $y' + P(x)y = Q(x)$\n4. **伯努利**: $y' + P(x)y = Q(x)y^n$",
+			"x": -400,
+			"y": -250,
+			"width": 300,
+			"height": 200
+		},
+		{
+			"id": "node_branch2",
+			"type": "text",
+			"text": "## 高阶线性微分方程\n\n1. **常系数齐次**: 特征方程求根\n2. **常系数非齐次**: $y^*$\n   - $f(x)=P_m(x)e^{\\lambda x}$\n   - $f(x)=e^{\\lambda x}[P_l(x)\\cos\\omega x + P_n(x)\\sin\\omega x]$\n3. **欧拉方程**: $x^2y''+axy'+by=0$ (令 $x=e^t$)",
+			"x": 300,
+			"y": -250,
+			"width": 320,
+			"height": 220
+		},
+		{
+			"id": "node_branch3",
+			"type": "text",
+			"text": "## 降阶法\n\n1. **缺y型**: $y''=f(x,y')$\n   - 令 $y'=p, y''=p'$\n2. **缺x型**: $y''=f(y,y')$\n   - 令 $y'=p, y''=p \\frac{dp}{dy}$",
+			"x": -400,
+			"y": 250,
+			"width": 300,
+			"height": 180
+		},
+		{
+			"id": "node_mistakes",
+			"type": "text",
+			"text": "## ⚠️ 易错点警示\n\n1. **积分常数C的遗漏**\n   - 尤其在一阶线性方程通解中\n2. **增根/漏根**\n   - 变量代换时注意定义域\n3. **初始条件带入时机**\n   - 通解求出后再带入，不要在中间步骤带入",
+			"x": 300,
+			"y": 250,
+			"width": 300,
+			"height": 200,
+			"color": "1"
+		}
+	],
+	"edges": [
+		{
+			"id": "edge1",
+			"fromNode": "node_center",
+			"fromSide": "left",
+			"toNode": "node_branch1",
+			"toSide": "right"
+		},
+		{
+			"id": "edge2",
+			"fromNode": "node_center",
+			"fromSide": "right",
+			"toNode": "node_branch2",
+			"toSide": "left"
+		},
+		{
+			"id": "edge3",
+			"fromNode": "node_center",
+			"fromSide": "bottom",
+			"toNode": "node_branch3",
+			"toSide": "top"
+		},
+		{
+			"id": "edge4",
+			"fromNode": "node_center",
+			"fromSide": "bottom",
+			"toNode": "node_mistakes",
+			"toSide": "top",
+			"color": "1"
+		},
+		{
+			"id": "edge_mistake1",
+			"fromNode": "node_mistakes",
+			"fromSide": "left",
+			"toNode": "node_branch1",
+			"toSide": "bottom",
+			"label": "积分常数易错",
+			"color": "1",
+			"toEnd": "arrow"
+		}
+	]
+}
