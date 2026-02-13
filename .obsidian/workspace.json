@@ -1,0 +1,252 @@
+{
+  "main": {
+    "id": "d6249b53f2cb7e91",
+    "type": "split",
+    "children": [
+      {
+        "id": "1ba675fd0d965a89",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c97428040b77e9e0",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "考研数学/错题/微分方程/微分方程错题.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "微分方程错题"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "0c0560aea49413c8",
+    "type": "split",
+    "children": [
+      {
+        "id": "2c02f5d6064fd945",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6e9dc9ad241bfb9c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "708662d4794fbe94",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "8f85041e55349483",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 212.5,
+    "collapsed": true
+  },
+  "right": {
+    "id": "9dd9820ed23495be",
+    "type": "split",
+    "children": [
+      {
+        "id": "61d2985cc39111a8",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "42430798dcb585ee",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "考研数学/习题集/26李林880题（数学一）解析分册.pdf",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "26李林880题（数学一）解析分册 的反向链接列表"
+            }
+          },
+          {
+            "id": "2a98ac8914b95d23",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "考研数学start12-27.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "考研数学start12-27 的出链列表"
+            }
+          },
+          {
+            "id": "fe8b5b971062f641",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "300024f2d30c1b3b",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "8b61970656b082cf",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "考研数学start12-27.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "考研数学start12-27 的大纲"
+            }
+          },
+          {
+            "id": "d55e4b21b494ad00",
+            "type": "leaf",
+            "state": {
+              "type": "copilot-chat-view",
+              "state": {},
+              "icon": "message-square",
+              "title": "Copilot"
+            }
+          }
+        ],
+        "currentTab": 5
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "bases:新建数据库": false,
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "obsidian-excalidraw-plugin:新建绘图文件": false,
+      "copilot:Open Copilot Chat": false,
+      "obsidian-git:Open Git source control": false
+    }
+  },
+  "active": "c97428040b77e9e0",
+  "lastOpenFiles": [
+    "考研数学/习题集/【横版】26李林880题数一高数部分做题本.pdf",
+    "考研数学/错题/微分方程/微分方程错题.md",
+    "Excalidraw/微分方程错题知识图谱.canvas",
+    "Pasted image 20251227214026.png",
+    "考研数学/错题/微分方程/images/Pasted image 20251227214026.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260109194026.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260109184830.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260105212302.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260105203555.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260105180224.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260104212556.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260104204612.png",
+    "考研数学/错题/微分方程/images/Pasted image 20260104200457.png",
+    "考研数学/错题/微分方程/images",
+    "logs/mcp-puppeteer-2026-02-13.log",
+    "copilot/copilot-conversations/将我的错题文件推送到我的远程仓库,仓库名为MBA-Study-Notes@20260213_011622.md",
+    "logs/mcp-puppeteer-2026-02-10.log",
+    "未命名 4.base",
+    "obsidian-skills/skills/obsidian-markdown/SKILL.md",
+    "obsidian-skills/skills/obsidian-bases/SKILL.md",
+    "obsidian-skills/skills/json-canvas/SKILL.md",
+    "obsidian-skills/skills/obsidian-markdown",
+    "obsidian-skills/skills/obsidian-bases",
+    "obsidian-skills/skills/json-canvas",
+    "obsidian-skills/skills",
+    "微分方程错题知识图谱.canvas",
+    "未命名 3.base",
+    "Excalidraw/Drawing 2026-02-09 10.33.55.excalidraw.md",
+    "未命名.canvas",
+    "copilot/copilot-conversations/你好@20260209_115532.md",
+    "copilot/copilot-custom-prompts/Clip Web Page.md",
+    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet thread.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet.md",
+    "copilot/copilot-custom-prompts/Remove URLs.md",
+    "copilot/copilot-custom-prompts/Generate glossary.md",
+    "copilot/copilot-custom-prompts/Generate table of contents.md",
+    "copilot/copilot-custom-prompts/Make longer.md",
+    "copilot/copilot-custom-prompts/Make shorter.md",
+    "copilot/copilot-custom-prompts/Emojify.md",
+    "copilot/copilot-custom-prompts/Explain like I am 5.md",
+    "copilot/copilot-custom-prompts/Simplify.md",
+    "copilot/copilot-custom-prompts/Summarize.md",
+    "copilot/copilot-custom-prompts/Translate to Chinese.md",
+    "copilot/copilot-custom-prompts/Fix grammar and spelling.md",
+    "考研数学/错题/微分方程错题.md",
+    "创建链接.md",
+    "欢迎.md"
+  ]
+}
