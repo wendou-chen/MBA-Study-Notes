@@ -27,3 +27,4 @@ logs/
 *.log
 Thumbs.db
 .DS_Store
+.obsidian/plugins/copilot/data.json
