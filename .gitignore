@@ -1,0 +1,29 @@
+# Obsidian specific
+.obsidian/workspace
+.obsidian/workspace-mobile
+.obsidian/cache
+.trash/
+
+# Large files
+*.pdf
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.exe
+*.dll
+*.iso
+
+# Security
+.env
+
+# Logs and System
+logs/
+*.log
+Thumbs.db
+.DS_Store

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mcp-obsidian": {
+      "command": "python",
+      "args": ["start_obsidian.py"]
+    }
+  }
+}
