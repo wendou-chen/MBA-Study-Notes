@@ -28,3 +28,10 @@ logs/
 Thumbs.db
 .DS_Store
 .obsidian/plugins/copilot/data.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/

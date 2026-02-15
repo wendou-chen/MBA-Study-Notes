@@ -8,7 +8,7 @@ from pathlib import Path
 import anthropic
 import arxiv
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent  # vault root
 OUTPUT_DIR = SCRIPT_DIR / "论文日报"
 DEFAULT_BASE_URL = "https://api.anthropic.com"
 MODEL = "claude-sonnet-4-5-20250929"
