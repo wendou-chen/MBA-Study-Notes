@@ -1,0 +1,16 @@
+{
+  "name": "kaoyan-countdown",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "typescript": "^5.3.0",
+    "tslib": "^2.6.0",
+    "builtin-modules": "^3.3.0"
+  }
+}
