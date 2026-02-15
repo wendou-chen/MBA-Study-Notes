@@ -4,11 +4,12 @@
     "type": "split",
     "children": [
       {
-        "id": "1ba675fd0d965a89",
+        "id": "af9e2484362dba30",
         "type": "tabs",
+        "dimension": 47.42647058823529,
         "children": [
           {
-            "id": "c97428040b77e9e0",
+            "id": "6018899c252b887a",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -19,6 +20,25 @@
               },
               "icon": "lucide-file",
               "title": "微分方程错题"
+            }
+          }
+        ]
+      },
+      {
+        "id": "1fd55bbea811aae1",
+        "type": "tabs",
+        "dimension": 52.57352941176471,
+        "children": [
+          {
+            "id": "19d7189282e885e3",
+            "type": "leaf",
+            "state": {
+              "type": "pdf",
+              "state": {
+                "file": "考研数学/习题集/a26张宇基础30讲.pdf"
+              },
+              "icon": "lucide-file-text",
+              "title": "a26张宇基础30讲"
             }
           }
         ]
@@ -175,17 +195,37 @@
               "icon": "message-square",
               "title": "Copilot"
             }
+          },
+          {
+            "id": "a5f06658646bd0e0",
+            "type": "leaf",
+            "state": {
+              "type": "git-view",
+              "state": {},
+              "icon": "git-pull-request",
+              "title": "Source Control"
+            }
+          },
+          {
+            "id": "658710aacf60b24f",
+            "type": "leaf",
+            "state": {
+              "type": "kaoyan-countdown-view",
+              "state": {},
+              "icon": "clock",
+              "title": "考研倒计时"
+            }
           }
         ],
-        "currentTab": 5
+        "currentTab": 7
       }
     ],
     "direction": "horizontal",
-    "width": 200,
-    "collapsed": true
+    "width": 347.5
   },
   "left-ribbon": {
     "hiddenItems": {
+      "kaoyan-countdown:考研倒计时": false,
       "bases:新建数据库": false,
       "switcher:打开快速切换": false,
       "graph:查看关系图谱": false,
@@ -198,12 +238,28 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "c97428040b77e9e0",
+  "active": "658710aacf60b24f",
   "lastOpenFiles": [
-    "README.md",
-    "CLAUDE.md",
-    "考研数学/习题集/【横版】26李林880题数一高数部分做题本.pdf",
+    "考研计划/2026-02-16 周一.md",
+    "logs/mcp-puppeteer-2026-02-16.log",
+    "考研数学/习题集/a26张宇基础30讲.pdf",
     "考研数学/错题/微分方程/微分方程错题.md",
+    "2026-02-15.md",
+    "考研数学/习题集/26李林880题（数学一）解析分册.pdf",
+    "考研数学/习题集/a26张宇基础30讲（高等数学分册）_Password_Removed_已添加书签.pdf",
+    "考研数学/习题集/a26张宇基础30讲（高等数学分册.pdf",
+    "考研数学/习题集/25张宇基础30讲-高数【更多考研资料尽在微信公众号：其然所以然】.pdf",
+    "考研数学/习题集/25张宇《题源1000题》习题册（数一）【更多考研资料尽在微信公众号：其然所以然】.pdf",
+    "考研数学/习题集/25张宇《题源1000题》解析册（数一）【更多考研资料尽在微信公众号：其然所以然】.pdf",
+    "考研数学/习题集/7 蒲和平 大学生数学竞赛教程 第1版.pdf",
+    "考研数学/习题集/7 蒲和平 大学生数学竞赛教材 第2版.pdf",
+    "论文日报/2026-02-15.md",
+    "GitHub周刊/2026-02-09~2026-02-15.md",
+    "考研计划/2026-02-15 周日.md",
+    "CLAUDE.md",
+    "README.md",
+    "考研计划/2026-02-15 周六.md",
+    "考研计划/2025-02-15 周六.md",
     "Excalidraw/微分方程错题知识图谱.canvas",
     "Pasted image 20251227214026.png",
     "考研数学/错题/微分方程/images/Pasted image 20251227214026.png",
@@ -215,20 +271,11 @@
     "考研数学/错题/微分方程/images/Pasted image 20260104212556.png",
     "考研数学/错题/微分方程/images/Pasted image 20260104204612.png",
     "考研数学/错题/微分方程/images/Pasted image 20260104200457.png",
-    "考研数学/错题/微分方程/images",
-    "logs/mcp-puppeteer-2026-02-13.log",
     "copilot/copilot-conversations/将我的错题文件推送到我的远程仓库,仓库名为MBA-Study-Notes@20260213_011622.md",
-    "logs/mcp-puppeteer-2026-02-10.log",
-    "未命名 4.base",
     "obsidian-skills/skills/obsidian-markdown/SKILL.md",
     "obsidian-skills/skills/obsidian-bases/SKILL.md",
     "obsidian-skills/skills/json-canvas/SKILL.md",
-    "obsidian-skills/skills/obsidian-markdown",
-    "obsidian-skills/skills/obsidian-bases",
-    "obsidian-skills/skills/json-canvas",
-    "obsidian-skills/skills",
     "微分方程错题知识图谱.canvas",
-    "未命名 3.base",
     "Excalidraw/Drawing 2026-02-09 10.33.55.excalidraw.md",
     "未命名.canvas",
     "copilot/copilot-conversations/你好@20260209_115532.md",
@@ -241,13 +288,6 @@
     "copilot/copilot-custom-prompts/Generate table of contents.md",
     "copilot/copilot-custom-prompts/Make longer.md",
     "copilot/copilot-custom-prompts/Make shorter.md",
-    "copilot/copilot-custom-prompts/Emojify.md",
-    "copilot/copilot-custom-prompts/Explain like I am 5.md",
-    "copilot/copilot-custom-prompts/Simplify.md",
-    "copilot/copilot-custom-prompts/Summarize.md",
-    "copilot/copilot-custom-prompts/Translate to Chinese.md",
-    "copilot/copilot-custom-prompts/Fix grammar and spelling.md",
-    "考研数学/错题/微分方程错题.md",
-    "创建链接.md"
+    "copilot/copilot-custom-prompts/Emojify.md"
   ]
 }

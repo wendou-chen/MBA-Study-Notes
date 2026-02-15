@@ -10,7 +10,7 @@ from pathlib import Path
 import anthropic
 import requests
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent  # vault root
 OUTPUT_DIR = SCRIPT_DIR / "GitHub周刊"
 DEFAULT_BASE_URL = "https://yunyi.cfd/claude"
 MODEL = "claude-sonnet-4-5-20250929"

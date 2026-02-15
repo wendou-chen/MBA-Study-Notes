@@ -3,21 +3,58 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Architecture
-- **Type**: Obsidian Vault for Postgraduate Entrance Exam (考研) study notes.
-- **Integration**: Uses Model Context Protocol (MCP) to allow AI interaction with notes via `start_obsidian.py`.
-- **Structure**:
-  - `考研数学/`: Main study notes, categorized by subject and type (e.g., `错题`, `习题集`).
-  - `Excalidraw/`: Visual knowledge graphs and diagrams.
-  - `.claude/`: Custom skills and configuration for Claude Code.
+- **Type**: Obsidian Vault for Postgraduate Entrance Exam (考研) study notes & tactical planning.
+- **Core System**:
+  - **Platform**: Obsidian (Markdown-based knowledge base).
+  - **Integration**: Model Context Protocol (MCP) via `start_obsidian.py` to allow AI interaction with note content.
+- **Directory Structure**:
+  - `考研数学/`, `考研英语/`, `专业课/`: Subject-specific study notes (definitions, theorems, mistakes).
+  - `考研计划/`: Daily/Weekly plans and reviews (managed by Planner Agent).
+  - `.claude/agents/`: Role definitions for specialized agents (Master, Planner, Math, Major, English, Politics, Layout).
+  - `Excalidraw/`: Visual knowledge graphs.
 
-## Automation & Skills
-- **MCP Server**: `python start_obsidian.py` launches the Obsidian MCP server (requires `OBSIDIAN_API_KEY` in `.env`).
-- **Image Organization**: Use the `study-notes-image-organization` skill to move pasted images into local `images/` directories and update links.
-- **Learning Patterns**: Use `/learn` to extract study patterns, common mistakes, or exam techniques into reusable skills.
+## User Context (Profile)
+- **Candidate**: 陈文斗 (Wendou Chen), 2027 届通信工程本科 (湖北文理学院, GPA 3.8/4.0).
+- **Target**: 华东五校 / 中坚九校 (通信/电子方向).
+- **Current Status**:
+  - **Math**: 数学一. 曾获**CMC 湖北省一等奖** (冲刺国赛). 正在进行**高数深度一轮** (重点攻克: 微分方程, 无穷级数, 多元函数积分). 线代/概率论待启动.
+  - **Major**: 信号与系统. 拥有 **SignalViz-Pro** 仿真项目经验, 获大唐杯国二, 具备扎实 Python/MATLAB 信号处理基础.
+  - **English**: CET-6 501 分.
+  - **Awards**: MCM Meritorious Winner, 蓝桥杯国二, AIC 机器人国一.
+
+## Commands
+- **Start MCP Server**:
+  ```bash
+  python start_obsidian.py
+  ```
+  *Required to enable read/write access to Obsidian vault via MCP.*
+
+- **Note Synchronization**:
+  ```bash
+  git add .
+  git commit -m "docs: update study notes [date]"
+  git push
+  ```
+
+- **Agent Interaction (Conceptual)**:
+  - `/plan`: Invoke **Planner Agent** to generate daily schedules or review progress.
+  - `/math`: Invoke **Math Agent** for theorem explanation or problem solving.
+  - `/learn`: Extract recurring mistake patterns into reusable skills.
 
 ## Conventions
-- **Markdown**: Standard Obsidian-flavored Markdown. Use `[[Link]]` for internal links and `![[Image]]` for embeddings.
-- **Math**: Use LaTeX for formulas (e.g., `$x^2$`, `$$ \int f(x) dx $$`).
-- **File Management**:
-  - Do not upload large media files (PDF, MP4, etc.).
-  - Keep `.env` and sensitive plugin data (e.g., `copilot/data.json`) out of version control.
+- **Markdown & Obsidian**:
+  - Use `[[WikiLinks]]` for internal connections.
+  - Use `![[Image.png]]` for embeddings.
+  - Use Callouts (`> [!tip]`) for key takeaways.
+  - **Frontmatter**: All plan/review notes must include YAML frontmatter (date, tags, phase).
+- **Mathematics**:
+  - Use LaTeX for all formulas: `$E = mc^2$` (inline) or `$$ \int_0^\infty f(x) dx $$` (block).
+- **Code/Projects**:
+  - **SignalViz**: Python/Streamlit project used for *visualization only* during review. Do not develop new features unless essential for understanding a concept.
+- **Style**:
+  - **Planner**: Cold, precise, data-driven. Focus on completion rates and ROI.
+  - **Notes**: Structured, rigorous, using "Definition-Theorem-Proof-Example" format.
+
+## Development & Maintenance
+- **Agents**: Agent definitions are in `.claude/agents/*.md`. When modifying an agent's behavior, update the corresponding markdown file and ensure the YAML header is preserved.
+- **Images**: Do not manually manage images. Use the `study-notes-image-organization` skill to organize pasted images into local asset folders.
