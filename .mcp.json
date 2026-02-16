@@ -3,6 +3,10 @@
     "mcp-obsidian": {
       "command": "python",
       "args": ["start_obsidian.py"]
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-puppeteer"]
     }
   }
 }
