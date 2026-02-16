@@ -35,3 +35,6 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Obsidian auto-generated junk
+未命名*.base
