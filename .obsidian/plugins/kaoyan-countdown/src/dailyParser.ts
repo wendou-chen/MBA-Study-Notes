@@ -3,23 +3,36 @@ import type { DailyTask, DailyPlan, WeekDay } from './types';
 
 const PLAN_FOLDER = '考研计划';
 const TABLE_ROW_RE = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(⬜|✅)\s*\|/;
+const CHECKLIST_RE = /^- \[([ xX])\]\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/;
 
 export function parseDailyTasks(content: string): DailyTask[] {
   const lines = content.split('\n');
   const tasks: DailyTask[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(TABLE_ROW_RE);
-    if (!m) continue;
-    const time = m[1].trim();
-    // Skip header / separator rows
-    if (time.includes('时间') || time.startsWith(':') || time.startsWith('-')) continue;
-    tasks.push({
-      time,
-      subject: m[2].replace(/\*/g, '').trim(),
-      description: m[3].replace(/\*/g, '').trim(),
-      completed: m[4].trim() === '✅',
-      lineIndex: i,
-    });
+    const tableMatch = lines[i].match(TABLE_ROW_RE);
+    if (tableMatch) {
+      const time = tableMatch[1].trim();
+      // Skip header / separator rows
+      if (time.includes('时间') || time.startsWith(':') || time.startsWith('-')) continue;
+      tasks.push({
+        time,
+        subject: tableMatch[2].replace(/\*/g, '').trim(),
+        description: tableMatch[3].replace(/\*/g, '').trim(),
+        completed: tableMatch[4].trim() === '✅',
+        lineIndex: i,
+      });
+      continue;
+    }
+    const checkMatch = lines[i].match(CHECKLIST_RE);
+    if (checkMatch) {
+      tasks.push({
+        time: checkMatch[2].trim(),
+        subject: checkMatch[3].replace(/\*/g, '').trim(),
+        description: checkMatch[4].replace(/\*/g, '').trim(),
+        completed: checkMatch[1] !== ' ',
+        lineIndex: i,
+      });
+    }
   }
   return tasks;
 }
@@ -27,9 +40,16 @@ export function parseDailyTasks(content: string): DailyTask[] {
 export function toggleTaskInContent(content: string, lineIndex: number, completed: boolean): string {
   const lines = content.split('\n');
   if (lineIndex < 0 || lineIndex >= lines.length) return content;
-  lines[lineIndex] = completed
-    ? lines[lineIndex].replace('⬜', '✅')
-    : lines[lineIndex].replace('✅', '⬜');
+  const line = lines[lineIndex];
+  if (line.includes('⬜') || line.includes('✅')) {
+    lines[lineIndex] = completed
+      ? line.replace('⬜', '✅')
+      : line.replace('✅', '⬜');
+  } else {
+    lines[lineIndex] = completed
+      ? line.replace('- [ ]', '- [x]')
+      : line.replace(/- \[[xX]\]/, '- [ ]');
+  }
   return lines.join('\n');
 }
 
