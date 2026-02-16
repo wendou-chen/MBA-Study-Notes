@@ -36,5 +36,8 @@ __pycache__/
 # Node
 node_modules/
 
+# Douyin assets (images/videos, too large for git)
+抖音素材/
+
 # Obsidian auto-generated junk
 未命名*.base
