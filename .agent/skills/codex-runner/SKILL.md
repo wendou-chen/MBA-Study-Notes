@@ -43,14 +43,18 @@ Antigravity 直接驱动 Codex CLI，省去手动复制计划的步骤。
 使用 `run_command` 工具，在项目目录运行：
 
 ```powershell
-codex -a full "<prompt>"
+codex --approval-policy never "<prompt>"
 ```
 
-参数说明：
-- `-a full`：自动审批所有文件变更（无需用户确认），适合自动化
+参数说明（基于 codex-cli v0.104，npm 安装版）：
+- `--approval-policy never`：**全自动模式**，codex 执行所有操作无需用户确认
+  - 等价简写：`-a never`（注意：`-a` 在此版本对应 `--approval-policy`，而非 approval-mode）
 - `<prompt>`：Phase 1 组织的任务文字（注意转义引号）
 - `Cwd`：设为 `d:\a考研\Obsidian Vault`
 - `WaitMsBeforeAsync`：设为 `10000`（10秒，等 codex 启动）
+
+> ⚠️ **版本说明**：此版本 `-a` 的合法值为 `untrusted / on-failure / on-request / never`。
+> 旧教程中的 `full`、`full-auto`、`full-access` 均**不适用**于此版本，会报错。
 
 ---
 
@@ -95,7 +99,7 @@ OutputCharacterCount: 2000
 
 ## 注意事项
 
-- **`-a full` 的风险**：codex 会自动执行所有文件变更，无二次确认。确保 prompt 描述准确再启动。
+- **`--approval-policy never` 的风险**：codex 会自动执行所有文件变更和 shell 命令，无二次确认。确保 prompt 描述准确再启动。
 - **长任务**：若任务预计超过 5 分钟，在 prompt 中告知 codex「请分步完成，每步完成后输出一行进度」。
 - **引号转义**：prompt 中如果含有单引号 `'`，在 PowerShell 命令中需改为双引号或转义。
 - **失败重试**：如果 codex 报错，读取错误信息后修改 prompt 重新启动，不要反复重试相同 prompt。
@@ -131,5 +135,7 @@ OutputCharacterCount: 2000
 
 **执行命令**：
 ```powershell
-codex -a full "按照以下要求修改文件：..."
+codex --approval-policy never "按照以下要求修改文件：..."
+# 简写等价：
+codex -a never "按照以下要求修改文件：..."
 ```
