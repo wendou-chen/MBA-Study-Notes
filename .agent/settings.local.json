@@ -38,11 +38,40 @@
       "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=10 -vT\" git push)",
       "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=10 -p 443\" git push:*)",
       "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -p 443\" git push ssh://git@ssh.github.com/wendou-chen/MBA-Study-Notes.git main)",
-      "Bash(GIT_SSH_COMMAND=\"ssh -T -p 443 -o StrictHostKeyChecking=no\" git push:*)"
+      "Bash(GIT_SSH_COMMAND=\"ssh -T -p 443 -o StrictHostKeyChecking=no\" git push:*)",
+      "WebFetch(domain:creator.douyin.com)",
+      "WebFetch(domain:developer.aliyun.com)",
+      "WebFetch(domain:cloud.tencent.cn)",
+      "Bash(bash ~/.claude/skills/git-autopilot/scripts/preflight.sh)",
+      "Bash(where:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI:/c/Program Files \\(x86\\)/GitHub CLI\")",
+      "Bash(gh --version:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh auth:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh api:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI:/usr/bin\")",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__fill_form",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__upload_file",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__hover",
+      "mcp__chrome-devtools__press_key",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__select_page"
     ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "mcp-obsidian"
+    "mcp-obsidian",
+    "chrome-devtools"
   ]
 }

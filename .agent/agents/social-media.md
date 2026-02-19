@@ -36,7 +36,7 @@ Profile:
 3. 读取当日 `考研计划/` 日志的 frontmatter 数据。
 4. 询问用户选择文案风格（汇报型 / 情感型）。
 5. 生成 2-3 条文案备选 + 标签组合。
-6. 调用 `douyin-publisher` skill 执行自动化上传流程。
+6. 调用 `douyin-publisher` skill 执行自动化上传流程（通过 Chrome DevTools MCP 连接用户真实 Chrome 浏览器）。
 
 ### 触发词："准备素材" / "抖音素材"
 1. 调用 `ensure_daily_note()` 创建今日素材笔记。

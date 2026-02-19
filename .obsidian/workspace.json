@@ -6,7 +6,6 @@
       {
         "id": "01b5553dcc544187",
         "type": "tabs",
-        "dimension": 27.150259067357513,
         "children": [
           {
             "id": "7fbe89a9998dbba4",
@@ -20,25 +19,6 @@
               },
               "icon": "lucide-file",
               "title": "微分方程错题"
-            }
-          }
-        ]
-      },
-      {
-        "id": "53cc4fb4b21e5452",
-        "type": "tabs",
-        "dimension": 72.84974093264248,
-        "children": [
-          {
-            "id": "a5f6f6d4e1a55149",
-            "type": "leaf",
-            "state": {
-              "type": "pdf",
-              "state": {
-                "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
-              },
-              "icon": "lucide-file-text",
-              "title": "【A4】26李林880题数一高数部分做题本"
             }
           }
         ]
@@ -98,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 212.5
+    "width": 200
   },
   "right": {
     "id": "9dd9820ed23495be",
@@ -220,7 +200,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 422.5
+    "width": 315.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -237,26 +217,33 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "6e9dc9ad241bfb9c",
+  "active": "7fbe89a9998dbba4",
   "lastOpenFiles": [
+    "2026-02-19-fix-error-collector.md",
+    "考研数学/解题板.md",
+    "考研数学/错题/微分方程/images/Pasted image 20260219211906.png",
+    "考研数学/错题/一元函数积分/一元函数积分错题.md",
+    "考研数学/错题/一元函数积分/images/Pasted image 20260219211906.png",
+    "考研数学/错题/一元函数积分/images",
+    "考研数学/错题/一元函数积分",
+    "考研数学/错题/微分方程/微分方程错题.md",
+    "考研数学/错题/无穷级数/无穷级数错题.md",
+    "2026-02-19-error-collector-plan.md",
+    "2026-02-19-214015-implement-the-following-plan.txt",
+    "考研数学/images/Pasted image 20260219211906.png",
+    "考研数学/images",
+    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
     "考研计划/2026-02-19 周四.md",
     "考研计划/周复盘/2026-W08 周复盘.md",
     "考研计划/周复盘",
-    "考研数学/错题/无穷级数/无穷级数错题.md",
     "考研数学/错题/无穷级数/images",
     "考研数学/错题/无穷级数",
     "logs/mcp-puppeteer-2026-02-19.log",
-    "考研数学/错题/微分方程/微分方程错题.md",
     "抖音素材/待发布/2026-02-18/2026-02-18.md",
     "logs/mcp-puppeteer-2026-02-18.log",
     "抖音素材/待发布/2026-02-18/images/02c47a219c1545e41927869930628b0e.png",
     "抖音素材/待发布/2026-02-18/images/a67e7470546cf8aa2a153637b3724166.jpg",
-    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
-    "抖音素材/待发布/2026-02-18/images",
-    "抖音素材/待发布/2026-02-18",
     "考研计划/2026-02-18 周三.md",
-    "未命名 5.base",
-    "考研数学/习题集/【横版】26李林880题数一高数部分做题本.pdf",
     "考研数学/错题/微分方程/images/Pasted image 20260217182010.png",
     "考研数学/错题/微分方程/images/Pasted image 20260217182002.png",
     "考研计划/2026-02-17 周二.md",
@@ -275,18 +262,11 @@
     "考研计划/2025-02-15 周六.md",
     "Excalidraw/微分方程错题知识图谱.canvas",
     "Pasted image 20251227214026.png",
-    "考研数学/错题/微分方程/images/Pasted image 20251227214026.png",
-    "考研数学/错题/微分方程/images/Pasted image 20260109194026.png",
-    "考研数学/错题/微分方程/images/Pasted image 20260109184830.png",
     "copilot/copilot-conversations/将我的错题文件推送到我的远程仓库,仓库名为MBA-Study-Notes@20260213_011622.md",
     "obsidian-skills/skills/obsidian-markdown/SKILL.md",
     "obsidian-skills/skills/obsidian-bases/SKILL.md",
     "obsidian-skills/skills/json-canvas/SKILL.md",
     "微分方程错题知识图谱.canvas",
-    "Excalidraw/Drawing 2026-02-09 10.33.55.excalidraw.md",
-    "未命名.canvas",
-    "copilot/copilot-conversations/你好@20260209_115532.md",
-    "copilot/copilot-custom-prompts/Clip Web Page.md",
-    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md"
+    "未命名.canvas"
   ]
 }
