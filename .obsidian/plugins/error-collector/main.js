@@ -36,18 +36,27 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
       }
 
       const successLineIndexes = [];
+      const newChapters = [];
+      const duplicateChapters = [];
       let failureCount = 0;
 
       for (const item of parsed.checkedItems) {
         try {
-          await this.collectOneItem({
+          const result = await this.collectOneItem({
             noteFile,
             chapter: item.chapter,
             imageLink: parsed.imageLink,
             keySentence: parsed.keySentence,
             answerText: parsed.answerText,
           });
+
           successLineIndexes.push(item.lineIndex);
+
+          if (result && result.isDuplicate) {
+            duplicateChapters.push(item.chapter);
+          } else {
+            newChapters.push(item.chapter);
+          }
         } catch (error) {
           failureCount += 1;
           console.error("[error-collector] 收录失败", {
@@ -59,14 +68,19 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
       }
 
       if (successLineIndexes.length > 0) {
-        const updatedContent = this.resetProcessedCheckboxes(parsed.lines, successLineIndexes).join("\n");
+        let updatedLines = this.resetProcessedCheckboxes(parsed.lines, successLineIndexes);
+        updatedLines = this.appendStatusToLines(updatedLines, newChapters, duplicateChapters);
+        const updatedContent = updatedLines.join("\n");
         await this.app.vault.modify(noteFile, updatedContent);
       }
 
-      if (successLineIndexes.length > 0 && failureCount === 0) {
-        new Notice(`错题收录完成：成功 ${successLineIndexes.length} 条。`);
-      } else {
-        new Notice(`错题收录完成：成功 ${successLineIndexes.length} 条，失败 ${failureCount} 条。`);
+      new Notice(`新增 ${newChapters.length} 条，查重+1 ${duplicateChapters.length} 条`);
+
+      if (failureCount > 0) {
+        console.error("[error-collector] 部分收录失败", {
+          failureCount,
+          total: parsed.checkedItems.length,
+        });
       }
     } finally {
       this.isProcessing = false;
@@ -157,7 +171,11 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
     if (sourceImageFile) {
       copiedImageName = sourceImageFile.name;
       const targetImagePath = normalizePath(`${imagesDir}/${copiedImageName}`);
-      await this.copyImageIfNeeded(sourceImageFile, targetImagePath);
+      const isDuplicate = await this.copyImageIfNeeded(sourceImageFile, targetImagePath);
+      if (isDuplicate) {
+        await this.incrementErrorCount(chapterFilePath, copiedImageName);
+        return { isDuplicate: true };
+      }
     }
 
     const record = this.buildErrorRecord({
@@ -168,6 +186,7 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
     });
 
     await this.appendToFile(chapterFilePath, record);
+    return { isDuplicate: false };
   }
 
   resolveImageFile(imageLink, sourceNoteFile) {
@@ -200,7 +219,7 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
   async copyImageIfNeeded(sourceFile, targetPath) {
     const existing = this.app.vault.getAbstractFileByPath(targetPath);
     if (existing instanceof TFile) {
-      return;
+      return true;
     }
     if (existing) {
       throw new Error(`目标图片路径已存在同名目录: ${targetPath}`);
@@ -208,6 +227,47 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
 
     const binary = await this.app.vault.readBinary(sourceFile);
     await this.app.vault.createBinary(targetPath, binary);
+    return false;
+  }
+
+  async incrementErrorCount(filePath, imageName) {
+    if (!imageName) {
+      throw new Error("缺少 imageName，无法累加错误次数");
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!(file instanceof TFile)) {
+      throw new Error(`错题文件不存在，无法累加错误次数: ${filePath}`);
+    }
+
+    const content = await this.app.vault.read(file);
+    const lines = content.split(/\r?\n/);
+    const imageLine = `![[images/${imageName}]]`;
+    const imageIndex = lines.findIndex((line) => line.trim() === imageLine);
+
+    if (imageIndex === -1) {
+      throw new Error(`未找到对应图片记录: ${imageLine}`);
+    }
+
+    for (let i = imageIndex + 1; i < lines.length; i += 1) {
+      const trimmed = lines[i].trim();
+
+      if (trimmed.startsWith("![[images/")) {
+        break;
+      }
+
+      const match = lines[i].match(/^(\s*-\s*\*\*错误次数\*\*:\s*)(\d+)(\s*)$/);
+      if (!match) {
+        continue;
+      }
+
+      const nextCount = Number(match[2]) + 1;
+      lines[i] = `${match[1]}${nextCount}${match[3]}`;
+      await this.app.vault.modify(file, lines.join("\n"));
+      return;
+    }
+
+    throw new Error(`未找到错误次数字段，无法累加: ${filePath}`);
   }
 
   buildErrorRecord({ chapter, imageName, keySentence, answerText }) {
@@ -285,5 +345,50 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
       if (!successSet.has(index)) return line;
       return line.replace(/^- \[[xX]\]/, "- [ ]");
     });
+  }
+
+  appendStatusToLines(lines, newChapters, duplicateChapters) {
+    if (newChapters.length === 0 && duplicateChapters.length === 0) {
+      return lines;
+    }
+
+    const dateText = this.getTodayDateString();
+    const statusLines = [];
+
+    for (const chapter of newChapters) {
+      statusLines.push(`✅ 已收录：${chapter}（${dateText}，首次添加）`);
+    }
+
+    for (const chapter of duplicateChapters) {
+      statusLines.push(`🔁 已更新：${chapter}（${dateText}，错误次数 +1）`);
+    }
+
+    const updated = [...lines];
+    let lastCheckboxIndex = -1;
+
+    for (let i = 0; i < updated.length; i += 1) {
+      if (/^- \[[ xX]\] 收录到错题本/.test(updated[i])) {
+        lastCheckboxIndex = i;
+      }
+    }
+
+    if (lastCheckboxIndex === -1) {
+      if (updated.length > 0 && updated[updated.length - 1].trim() !== "") {
+        updated.push("");
+      }
+      updated.push(...statusLines);
+      return updated;
+    }
+
+    updated.splice(lastCheckboxIndex + 1, 0, "", ...statusLines);
+    return updated;
+  }
+
+  getTodayDateString() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 };

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "考研数学/错题/微分方程/微分方程错题.md",
+                "file": "考研数学/解题板.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "微分方程错题"
+              "title": "解题板"
             }
           }
         ]
@@ -200,7 +200,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 315.5
+    "width": 315.5,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -219,14 +220,14 @@
   },
   "active": "7fbe89a9998dbba4",
   "lastOpenFiles": [
-    "2026-02-19-fix-error-collector.md",
+    "考研数学/错题/微分方程/微分方程错题.md",
     "考研数学/解题板.md",
+    "2026-02-19-fix-error-collector.md",
     "考研数学/错题/微分方程/images/Pasted image 20260219211906.png",
     "考研数学/错题/一元函数积分/一元函数积分错题.md",
     "考研数学/错题/一元函数积分/images/Pasted image 20260219211906.png",
     "考研数学/错题/一元函数积分/images",
     "考研数学/错题/一元函数积分",
-    "考研数学/错题/微分方程/微分方程错题.md",
     "考研数学/错题/无穷级数/无穷级数错题.md",
     "2026-02-19-error-collector-plan.md",
     "2026-02-19-214015-implement-the-following-plan.txt",
