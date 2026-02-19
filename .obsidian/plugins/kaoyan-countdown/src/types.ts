@@ -83,12 +83,26 @@ export interface TaskItem {
 
 export interface KaoyanSettings {
   examDate: string;
+  planFolder: string;
   tasks: TaskItem[];
   completedMilestones: string[];
   showAllocation: boolean;
   viewMode: ViewMode;
   focus: FocusSettings;
   focusStats: FocusStats;
+}
+
+/** Compute the third Saturday of December for the next exam cycle. */
+function getNextExamDate(): string {
+  const now = new Date();
+  let year = now.getFullYear();
+  // If already past Dec 25, target next year
+  if (now.getMonth() === 11 && now.getDate() > 25) year++;
+  // Find the third Saturday of December
+  const dec1 = new Date(year, 11, 1);
+  const firstSatDay = 1 + ((6 - dec1.getDay() + 7) % 7);
+  const thirdSatDay = firstSatDay + 14;
+  return `${year}-12-${String(thirdSatDay).padStart(2, '0')}`;
 }
 
 export const SUBJECT_LABELS: Record<Subject, string> = {
@@ -138,7 +152,8 @@ export const DEFAULT_FOCUS_STATS: FocusStats = {
 };
 
 export const DEFAULT_SETTINGS: KaoyanSettings = {
-  examDate: '2026-12-20',
+  examDate: getNextExamDate(),
+  planFolder: '考研计划',
   tasks: DEFAULT_TASKS,
   completedMilestones: [],
   showAllocation: true,

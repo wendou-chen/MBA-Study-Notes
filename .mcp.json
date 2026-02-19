@@ -4,9 +4,9 @@
       "command": "python",
       "args": ["start_obsidian.py"]
     },
-    "puppeteer": {
+    "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-puppeteer"]
+      "args": ["-y", "chrome-devtools-mcp@latest"]
     }
   }
 }
