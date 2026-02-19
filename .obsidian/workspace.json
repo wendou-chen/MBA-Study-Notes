@@ -220,7 +220,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 445.5
+    "width": 422.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -237,8 +237,9 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "658710aacf60b24f",
+  "active": "6e9dc9ad241bfb9c",
   "lastOpenFiles": [
+    "考研计划/2026-02-19 周四.md",
     "考研计划/周复盘/2026-W08 周复盘.md",
     "考研计划/周复盘",
     "考研数学/错题/无穷级数/无穷级数错题.md",
@@ -286,7 +287,6 @@
     "未命名.canvas",
     "copilot/copilot-conversations/你好@20260209_115532.md",
     "copilot/copilot-custom-prompts/Clip Web Page.md",
-    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
-    "copilot/copilot-custom-prompts/Rewrite as tweet thread.md"
+    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md"
   ]
 }
