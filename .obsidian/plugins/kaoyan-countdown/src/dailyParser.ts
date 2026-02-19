@@ -1,7 +1,6 @@
 import type { Vault, TFile } from 'obsidian';
 import type { DailyTask, DailyPlan, WeekDay } from './types';
 
-const PLAN_FOLDER = '考研计划';
 const TABLE_ROW_RE = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(⬜|✅)\s*\|/;
 const CHECKLIST_RE = /^- \[([ xX])\]\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/;
 
@@ -53,14 +52,14 @@ export function toggleTaskInContent(content: string, lineIndex: number, complete
   return lines.join('\n');
 }
 
-export function findDailyPlanFile(vault: Vault, date: string): TFile | null {
+export function findDailyPlanFile(vault: Vault, date: string, planFolder: string): TFile | null {
   const files = vault.getFiles();
-  const prefix = `${PLAN_FOLDER}/${date}`;
+  const prefix = `${planFolder}/${date}`;
   return files.find(f => f.path.startsWith(prefix) && f.extension === 'md') ?? null;
 }
 
-export async function loadDailyPlan(vault: Vault, date: string): Promise<DailyPlan | null> {
-  const file = findDailyPlanFile(vault, date);
+export async function loadDailyPlan(vault: Vault, date: string, planFolder: string): Promise<DailyPlan | null> {
+  const file = findDailyPlanFile(vault, date, planFolder);
   if (!file) return null;
   const content = await vault.read(file);
   return { date, tasks: parseDailyTasks(content), filePath: file.path };
@@ -91,12 +90,12 @@ function formatDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export async function loadWeekOverview(vault: Vault, date: Date): Promise<WeekDay[]> {
+export async function loadWeekOverview(vault: Vault, date: Date, planFolder: string): Promise<WeekDay[]> {
   const dates = getWeekDates(date);
   const result: WeekDay[] = [];
   for (const d of dates) {
     const dateStr = formatDate(d);
-    const plan = await loadDailyPlan(vault, dateStr);
+    const plan = await loadDailyPlan(vault, dateStr, planFolder);
     result.push({
       date: dateStr,
       weekday: WEEKDAY_NAMES[d.getDay()],

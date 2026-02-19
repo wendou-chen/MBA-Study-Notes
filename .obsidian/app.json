@@ -3,5 +3,6 @@
   "newFileLocation": "folder",
   "userIgnoreFilters": [
     "logs/"
-  ]
+  ],
+  "attachmentFolderPath": "./images"
 }

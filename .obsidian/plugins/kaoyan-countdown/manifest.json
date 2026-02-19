@@ -1,10 +1,11 @@
 {
   "id": "kaoyan-countdown",
-  "name": "考研倒计时",
+  "name": "Kaoyan Countdown",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "显示考研倒计时、当前阶段进度和待办任务清单",
-  "author": "陈文斗",
+  "description": "Display a countdown to the Chinese Postgraduate Entrance Exam with phase tracking, daily plans, and focus timer.",
+  "author": "Wendou Chen",
+  "authorUrl": "https://github.com/wendou-chen",
   "main": "main.js",
   "isDesktopOnly": false
 }

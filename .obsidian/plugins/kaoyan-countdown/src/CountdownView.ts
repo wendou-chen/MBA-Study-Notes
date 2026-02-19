@@ -45,11 +45,11 @@ export class CountdownView extends ItemView {
     this.refreshInterval = window.setInterval(() => this.fullRender(), 60_000);
     this.registerInterval(this.refreshInterval);
 
-    // Watch for file changes in 考研计划/
+    // Watch for file changes in plan folder
     const debouncedRefresh = debounce(() => this.fullRender(), 200, true);
     this.registerEvent(
       this.app.vault.on('modify', (file: TAbstractFile) => {
-        if (file.path.startsWith('考研计划/')) debouncedRefresh();
+        if (file.path.startsWith(this.plugin.settings.planFolder + '/')) debouncedRefresh();
       })
     );
   }
@@ -57,6 +57,11 @@ export class CountdownView extends ItemView {
   async onClose() {
     await this.persistFocusStats();
     this.timerEngine.destroy();
+  }
+
+  /** Public method for settings tab to trigger a re-render. */
+  async refresh() {
+    await this.fullRender();
   }
 
   private get viewMode(): ViewMode { return this.plugin.settings.viewMode; }
@@ -118,7 +123,7 @@ export class CountdownView extends ItemView {
   private async renderDayMode(container: HTMLElement) {
     const section = container.createDiv({ cls: 'kc-day-section' });
     const today = this.todayStr();
-    this.dailyPlan = await loadDailyPlan(this.app.vault, today);
+    this.dailyPlan = await loadDailyPlan(this.app.vault, today, this.plugin.settings.planFolder);
 
     if (!this.dailyPlan) {
       section.createEl('div', { cls: 'kc-empty', text: '今日暂无计划文件' });
@@ -161,7 +166,7 @@ export class CountdownView extends ItemView {
   private async renderWeekMode(container: HTMLElement) {
     const section = container.createDiv({ cls: 'kc-week-section' });
     const today = this.todayStr();
-    const weekDays = await loadWeekOverview(this.app.vault, new Date());
+    const weekDays = await loadWeekOverview(this.app.vault, new Date(), this.plugin.settings.planFolder);
 
     for (const wd of weekDays) {
       const isToday = wd.date === today;
