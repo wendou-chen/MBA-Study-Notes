@@ -244,7 +244,7 @@ def main():
     for i, img in enumerate(images, 1):
         print(f"  {i}. {img.name}")
 
-    print("\n[浏览器上传和发布确认由 Puppeteer MCP 处理]")
+    print("\n[浏览器上传和发布确认由 Chrome DevTools MCP 处理]")
 
 
 if __name__ == "__main__":

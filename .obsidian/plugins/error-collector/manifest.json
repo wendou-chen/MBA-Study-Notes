@@ -1,0 +1,10 @@
+{
+  "id": "error-collector",
+  "name": "错题收录",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "监听解题板 checkbox 勾选，自动收录题目到对应章节的错题本。",
+  "author": "Wendou Chen",
+  "main": "main.js",
+  "isDesktopOnly": false
+}
