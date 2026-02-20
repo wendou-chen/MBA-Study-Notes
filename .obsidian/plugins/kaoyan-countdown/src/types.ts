@@ -19,6 +19,22 @@ export interface TimerSnapshot {
   elapsedMs: number;
 }
 
+export type AiProvider = 'anthropic' | 'openai' | 'deepseek';
+
+export interface AiSettings {
+  provider: AiProvider;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+export const DEFAULT_AI_SETTINGS: AiSettings = {
+  provider: 'anthropic',
+  apiKey: '',
+  baseUrl: '',
+  model: 'claude-opus-4-6-20250616',
+};
+
 export interface FocusSettings {
   pomodoroDurationMin: number;
   shortBreakMin: number;
@@ -97,6 +113,7 @@ export interface KaoyanSettings {
   viewMode: ViewMode;
   focus: FocusSettings;
   focusStats: FocusStats;
+  ai: AiSettings;
   bookmarks: StudyBookmark[];
 }
 
@@ -168,5 +185,6 @@ export const DEFAULT_SETTINGS: KaoyanSettings = {
   viewMode: 'day',
   focus: { ...DEFAULT_FOCUS_SETTINGS },
   focusStats: { ...DEFAULT_FOCUS_STATS },
+  ai: { ...DEFAULT_AI_SETTINGS },
   bookmarks: [],
 };

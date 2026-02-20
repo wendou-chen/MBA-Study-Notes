@@ -1,4 +1,5 @@
 import { PluginSettingTab, Setting, App } from 'obsidian';
+import type { AiProvider } from './types';
 import type KaoyanCountdownPlugin from './main';
 
 export class KaoyanSettingTab extends PluginSettingTab {
@@ -107,6 +108,69 @@ export class KaoyanSettingTab extends PluginSettingTab {
         .setDynamicTooltip()
         .onChange(async (value) => {
           this.plugin.settings.focus.scientificDurationMin = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // ── AI 模型配置 ──
+    containerEl.createEl('h3', { text: 'AI 模型配置' });
+
+    const providerPlaceholders: Record<AiProvider, { url: string; model: string }> = {
+      anthropic: { url: 'https://api.anthropic.com', model: 'claude-opus-4-6-20250616' },
+      openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o' },
+      deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-chat' },
+    };
+
+    new Setting(containerEl)
+      .setName('AI 服务商')
+      .setDesc('选择 AI API 提供商')
+      .addDropdown(dropdown => dropdown
+        .addOption('anthropic', 'Anthropic (Claude)')
+        .addOption('openai', 'OpenAI (GPT)')
+        .addOption('deepseek', 'DeepSeek')
+        .setValue(this.plugin.settings.ai.provider)
+        .onChange(async (value) => {
+          this.plugin.settings.ai.provider = value as AiProvider;
+          this.plugin.settings.ai.baseUrl = '';
+          this.plugin.settings.ai.model = '';
+          await this.plugin.saveSettings();
+          this.display();
+        }));
+
+    new Setting(containerEl)
+      .setName('API Key')
+      .setDesc('留空则使用 .env 文件中的配置')
+      .addText(text => {
+        text.inputEl.type = 'password';
+        text.setPlaceholder('sk-...')
+          .setValue(this.plugin.settings.ai.apiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.ai.apiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    const currentProvider = this.plugin.settings.ai.provider;
+    const ph = providerPlaceholders[currentProvider] || providerPlaceholders.anthropic;
+
+    new Setting(containerEl)
+      .setName('Base URL')
+      .setDesc('自定义 API 地址（留空使用默认）')
+      .addText(text => text
+        .setPlaceholder(ph.url)
+        .setValue(this.plugin.settings.ai.baseUrl)
+        .onChange(async (value) => {
+          this.plugin.settings.ai.baseUrl = value.trim();
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('模型名称')
+      .setDesc('留空使用默认模型')
+      .addText(text => text
+        .setPlaceholder(ph.model)
+        .setValue(this.plugin.settings.ai.model)
+        .onChange(async (value) => {
+          this.plugin.settings.ai.model = value.trim();
           await this.plugin.saveSettings();
         }));
   }

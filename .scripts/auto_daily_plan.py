@@ -13,6 +13,21 @@ import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+# 从项目根目录 .env 加载环境变量（cron 执行时不会继承 shell 环境）
+def _load_dotenv() -> None:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+_load_dotenv()
 from typing import Any
 
 CHECKBOX_DONE_RE = re.compile(r"^- \[[xX]\]\s*(.+)$", re.MULTILINE)
@@ -223,31 +238,108 @@ def build_prompt(
 """
 
 
-def call_claude(prompt: str) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+def load_ai_settings(repo_root: Path) -> dict[str, Any]:
+    """从插件 data.json 读取 AI 设置，回退到 .env 环境变量"""
+    data_json = repo_root / ".obsidian" / "plugins" / "kaoyan-countdown" / "data.json"
+    if data_json.exists():
+        try:
+            data = json.loads(data_json.read_text(encoding="utf-8"))
+            ai = data.get("ai", {})
+            if ai.get("apiKey"):
+                return {
+                    "provider": ai.get("provider", "anthropic"),
+                    "apiKey": ai["apiKey"],
+                    "baseUrl": ai.get("baseUrl", ""),
+                    "model": ai.get("model", ""),
+                }
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return {
+        "provider": "anthropic",
+        "apiKey": os.getenv("ANTHROPIC_API_KEY", ""),
+        "baseUrl": os.getenv("ANTHROPIC_BASE_URL", ""),
+        "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-6-20250616"),
+    }
+
+
+def _call_anthropic(prompt: str, settings: dict[str, Any]) -> str:
+    api_key = settings["apiKey"]
     if not api_key:
-        raise RuntimeError("缺少 ANTHROPIC_API_KEY 环境变量")
+        raise RuntimeError("缺少 API Key（Anthropic）")
 
     try:
         from anthropic import Anthropic
     except ImportError as exc:
         raise RuntimeError("未安装 anthropic SDK，请先执行: pip install anthropic") from exc
 
-    client = Anthropic(api_key=api_key)
-    model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+    client_kwargs: dict[str, Any] = {"api_key": api_key}
+    base_url = settings.get("baseUrl")
+    if base_url:
+        client_kwargs["base_url"] = base_url
+
+    client = Anthropic(**client_kwargs)
+    model = settings.get("model") or "claude-opus-4-6-20250616"
 
     response = client.messages.create(
         model=model,
-        max_tokens=2400,
-        temperature=0.4,
+        max_tokens=16000,
+        thinking={
+            "type": "enabled",
+            "budget_tokens": 8000,
+        },
         messages=[{"role": "user", "content": prompt}],
     )
 
     parts = [block.text for block in response.content if getattr(block, "type", "") == "text"]
     content = "".join(parts).strip()
     if not content:
-        raise RuntimeError("Claude 返回为空")
+        raise RuntimeError("Anthropic API 返回为空")
     return content
+
+
+def _call_openai_compatible(prompt: str, settings: dict[str, Any]) -> str:
+    api_key = settings["apiKey"]
+    if not api_key:
+        raise RuntimeError(f"缺少 API Key（{settings.get('provider', 'openai')}）")
+
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError("未安装 openai SDK，请先执行: pip install openai") from exc
+
+    default_urls = {
+        "openai": "https://api.openai.com/v1",
+        "deepseek": "https://api.deepseek.com",
+    }
+    default_models = {
+        "openai": "gpt-4o",
+        "deepseek": "deepseek-chat",
+    }
+
+    provider = settings.get("provider", "openai")
+    base_url = settings.get("baseUrl") or default_urls.get(provider, "https://api.openai.com/v1")
+    model = settings.get("model") or default_models.get(provider, "gpt-4o")
+
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=16000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    content = response.choices[0].message.content
+    if not content or not content.strip():
+        raise RuntimeError(f"{provider} API 返回为空")
+    return content.strip()
+
+
+def call_ai(prompt: str, repo_root: Path) -> str:
+    settings = load_ai_settings(repo_root)
+    provider = settings.get("provider", "anthropic")
+    if provider == "anthropic":
+        return _call_anthropic(prompt, settings)
+    return _call_openai_compatible(prompt, settings)
 
 
 def main() -> int:
@@ -287,7 +379,7 @@ def main() -> int:
         milestones=milestones,
     )
 
-    content = call_claude(prompt)
+    content = call_ai(prompt, repo_root)
 
     plan_dir.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content.rstrip() + "\n", encoding="utf-8")
