@@ -1,0 +1,20 @@
+{
+  "session_id": "ai-1771589239-366110",
+  "ccb_project_id": "5c48695127549ddb3afea4bdadb94d5105108b71ab9f75f2c897214c0f9e47be",
+  "runtime_dir": "/tmp/claude-ai-mirror/ai-1771589239-366110/codex",
+  "input_fifo": "/tmp/claude-ai-mirror/ai-1771589239-366110/codex/input.fifo",
+  "output_fifo": "/tmp/claude-ai-mirror/ai-1771589239-366110/codex/output.fifo",
+  "terminal": "tmux",
+  "tmux_session": null,
+  "pane_id": "%6",
+  "pane_title_marker": "CCB-Codex",
+  "tmux_log": "/tmp/claude-ai-mirror/ai-1771589239-366110/codex/bridge_output.log",
+  "work_dir": "/mnt/d/a考研/Obsidian Vault",
+  "work_dir_norm": "d:/a考研/obsidian vault",
+  "start_dir": "/mnt/d/a考研/Obsidian Vault",
+  "active": false,
+  "started_at": "2026-02-20 20:07:20",
+  "codex_start_cmd": "export CCB_MANAGED=1; export CCB_PARENT_PID=366110; export CCB_RUN_DIR=/home/mirror/.cache/ccb/projects/5c48695127549ddb; export PATH=/home/mirror/.local/share/codex-dual/bin:'/home/mirror/.local/bin:/home/mirror/.local/bin:/home/mirror/.nvm/versions/node/v25.6.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Python314/Scripts/:/mnt/c/Python314/:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/d/CURSOR/cursor/resources/app/bin:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/d/Program Files/MATLAB/R2025a/runtime/win64:/mnt/d/Program Files/MATLAB/R2025a/bin:/mnt/c/texlive/2024/bin/windows:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/nodejs/:/mnt/c/ProgramData/chocolatey/bin:/mnt/c/Program Files/GitHub CLI/:/mnt/c/Users/admin/AppData/Local/Programs/Python/Python311/Scripts/:/mnt/c/Users/admin/AppData/Local/Programs/Python/Python311/:/mnt/c/Users/admin/AppData/Local/Microsoft/WindowsApps:/mnt/c/VScode/Microsoft VS Code/bin:/mnt/d/Users/admin/AppData/Local/Programs/Windsurf/bin:/mnt/c/Users/admin/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/admin/AppData/Local/Programs/Kiro/bin:/mnt/c/Users/admin/AppData/Local/Python/bin:/mnt/c/Users/admin/AppData/Roaming/npm:/mnt/c/Users/admin/AppData/Local/codex-dual/bin:/snap/bin'; codex -c disable_paste_burst=true -c trust_level=\"trusted\" -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\"",
+  "start_cmd": "export CCB_MANAGED=1; export CCB_PARENT_PID=366110; export CCB_RUN_DIR=/home/mirror/.cache/ccb/projects/5c48695127549ddb; export PATH=/home/mirror/.local/share/codex-dual/bin:'/home/mirror/.local/bin:/home/mirror/.local/bin:/home/mirror/.nvm/versions/node/v25.6.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Python314/Scripts/:/mnt/c/Python314/:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/d/CURSOR/cursor/resources/app/bin:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/d/Program Files/MATLAB/R2025a/runtime/win64:/mnt/d/Program Files/MATLAB/R2025a/bin:/mnt/c/texlive/2024/bin/windows:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/nodejs/:/mnt/c/ProgramData/chocolatey/bin:/mnt/c/Program Files/GitHub CLI/:/mnt/c/Users/admin/AppData/Local/Programs/Python/Python311/Scripts/:/mnt/c/Users/admin/AppData/Local/Programs/Python/Python311/:/mnt/c/Users/admin/AppData/Local/Microsoft/WindowsApps:/mnt/c/VScode/Microsoft VS Code/bin:/mnt/d/Users/admin/AppData/Local/Programs/Windsurf/bin:/mnt/c/Users/admin/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/admin/AppData/Local/Programs/Kiro/bin:/mnt/c/Users/admin/AppData/Local/Python/bin:/mnt/c/Users/admin/AppData/Roaming/npm:/mnt/c/Users/admin/AppData/Local/codex-dual/bin:/snap/bin'; codex -c disable_paste_burst=true -c trust_level=\"trusted\" -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\"",
+  "ended_at": "2026-02-20 20:10:25"
+}

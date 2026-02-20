@@ -40,21 +40,33 @@ Antigravity 直接驱动 Codex CLI，省去手动复制计划的步骤。
 
 ### Phase 2：启动 Codex
 
-使用 `run_command` 工具，在项目目录运行：
+> ✅ **正确命令**：`codex exec "<prompt>"` —— 非交互模式，**不需要 TTY**，可直接在 `run_command` 中使用。
+>
+> ❌ 不要用 `codex -a never "<prompt>"`：这是 TUI 模式，需要真实终端，在 `run_command` 里会报 `stdin is not a terminal`。
+>
+> ❌ 不要用 `Start-Process` 开新窗口：无法监控输出，无法读取结果。
 
-```powershell
-codex --approval-policy never "<prompt>"
+#### 2.1 先将 Prompt 写入计划文件
+
+用 `write_to_file` 将 Phase 1 的 Prompt 写到：
+```
+d:\a考研\Obsidian Vault\.agent\codex-current-plan.md
 ```
 
-参数说明（基于 codex-cli v0.104，npm 安装版）：
-- `--approval-policy never`：**全自动模式**，codex 执行所有操作无需用户确认
-  - 等价简写：`-a never`（注意：`-a` 在此版本对应 `--approval-policy`，而非 approval-mode）
-- `<prompt>`：Phase 1 组织的任务文字（注意转义引号）
-- `Cwd`：设为 `d:\a考研\Obsidian Vault`
-- `WaitMsBeforeAsync`：设为 `10000`（10秒，等 codex 启动）
+#### 2.2 用 `run_command` 执行 Codex
 
-> ⚠️ **版本说明**：此版本 `-a` 的合法值为 `untrusted / on-failure / on-request / never`。
-> 旧教程中的 `full`、`full-auto`、`full-access` 均**不适用**于此版本，会报错。
+```powershell
+$plan = Get-Content '.agent\codex-current-plan.md' -Raw; codex exec $plan
+```
+
+`run_command` 参数：
+- `Cwd`：设为 `d:\a考研\Obsidian Vault`
+- `SafeToAutoRun`：设为 `false`（Codex 会修改文件，需用户确认）
+- `WaitMsBeforeAsync`：设为 `15000`（等 15 秒，Codex 启动需要时间）
+- 然后用 `command_status` 持续轮询，直到 `Status: DONE`
+
+> 💡 **关于上下文保持**：`codex exec` 是一次性任务模式，每次调用都是独立会话，没有跨调用的上下文记忆。
+> 如果需要持续对话，需要在新开的终端中用交互模式 `codex`（用户手动操作）。
 
 ---
 

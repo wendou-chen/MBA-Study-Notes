@@ -20,8 +20,21 @@
               "icon": "lucide-file",
               "title": "解题板"
             }
+          },
+          {
+            "id": "e142241c8796a910",
+            "type": "leaf",
+            "state": {
+              "type": "pdf",
+              "state": {
+                "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
+              },
+              "icon": "lucide-file-text",
+              "title": "【A4】26李林880题数一高数部分做题本"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -218,10 +231,11 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "7fbe89a9998dbba4",
+  "active": "e142241c8796a910",
   "lastOpenFiles": [
-    "考研数学/错题/微分方程/微分方程错题.md",
+    "考研计划/2026-02-20 周五.md",
     "考研数学/解题板.md",
+    "考研数学/错题/微分方程/微分方程错题.md",
     "2026-02-19-fix-error-collector.md",
     "考研数学/错题/微分方程/images/Pasted image 20260219211906.png",
     "考研数学/错题/一元函数积分/一元函数积分错题.md",
@@ -266,7 +280,6 @@
     "copilot/copilot-conversations/将我的错题文件推送到我的远程仓库,仓库名为MBA-Study-Notes@20260213_011622.md",
     "obsidian-skills/skills/obsidian-markdown/SKILL.md",
     "obsidian-skills/skills/obsidian-bases/SKILL.md",
-    "obsidian-skills/skills/json-canvas/SKILL.md",
     "微分方程错题知识图谱.canvas",
     "未命名.canvas"
   ]

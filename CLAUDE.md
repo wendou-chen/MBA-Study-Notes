@@ -58,3 +58,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development & Maintenance
 - **Agents**: Agent definitions are in `.claude/agents/*.md`. When modifying an agent's behavior, update the corresponding markdown file and ensure the YAML header is preserved.
 - **Images**: Do not manually manage images. Use the `study-notes-image-organization` skill to organize pasted images into local asset folders.
+
+## Codex CLI Usage (Windows)
+
+When delegating tasks to Codex on this Windows machine:
+
+### ✅ Correct: `codex exec` (no TTY needed)
+```powershell
+# Short prompts
+codex exec "task description here"
+
+# Long prompts (recommended - avoids quoting issues)
+$plan = Get-Content '.agent\codex-current-plan.md' -Raw
+codex exec $plan
+```
+
+### ❌ Wrong: TUI mode (requires TTY, fails in run_command)
+```powershell
+# These fail with "stdin is not a terminal":
+codex -a never "prompt"
+echo "prompt" | codex
+```
+
+### Standard Workflow
+1. Write task to `.agent\codex-current-plan.md`
+2. Run: `$plan = Get-Content '.agent\codex-current-plan.md' -Raw; codex exec $plan`
+3. Poll with `command_status` until `Status: DONE`
+
