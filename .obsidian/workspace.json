@@ -11,6 +11,18 @@
             "id": "7fbe89a9998dbba4",
             "type": "leaf",
             "state": {
+              "type": "pdf",
+              "state": {
+                "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
+              },
+              "icon": "lucide-file-text",
+              "title": "【A4】26李林880题数一高数部分做题本"
+            }
+          },
+          {
+            "id": "cef4cb207a80221d",
+            "type": "leaf",
+            "state": {
               "type": "markdown",
               "state": {
                 "file": "考研数学/解题板.md",
@@ -19,18 +31,6 @@
               },
               "icon": "lucide-file",
               "title": "解题板"
-            }
-          },
-          {
-            "id": "e142241c8796a910",
-            "type": "leaf",
-            "state": {
-              "type": "pdf",
-              "state": {
-                "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
-              },
-              "icon": "lucide-file-text",
-              "title": "【A4】26李林880题数一高数部分做题本"
             }
           }
         ],
@@ -213,8 +213,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 315.5,
-    "collapsed": true
+    "width": 200
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -231,55 +230,55 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "e142241c8796a910",
+  "active": "cef4cb207a80221d",
   "lastOpenFiles": [
-    "考研计划/2026-02-20 周五.md",
+    "抖音素材/发布记录.md",
+    "抖音素材/待发布/2026-02-20/2026-02-20.md",
+    "抖音素材/已发布/2026-02-20/images/Pasted image 20260220230821.png",
+    "抖音素材/已发布/2026-02-20/images/c6edfce62940cb4582440ba381c4910b.png",
+    "抖音素材/已发布/2026-02-20/images/68cdeaef686f0d635a20166fc43239d5.png",
+    "抖音素材/已发布/2026-02-20/images",
+    "抖音素材/已发布/2026-02-20/2026-02-20.md",
+    "抖音素材/已发布/2026-02-20",
+    "抖音素材/待发布/2026-02-20/images/Pasted image 20260220230821.png",
+    "抖音素材/待发布/2026-02-20/images/68cdeaef686f0d635a20166fc43239d5.png",
+    "抖音素材/待发布/2026-02-20/images/c6edfce62940cb4582440ba381c4910b.png",
     "考研数学/解题板.md",
+    "抖音素材/待发布/2026-02-20/images",
+    "抖音素材/待发布/2026-02-20",
+    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
+    "考研数学/固定解法速查表.md",
+    "考研数学/错题/一元函数积分/一元函数积分错题.md",
+    "考研数学/images/Pasted image 20260220223449.png",
     "考研数学/错题/微分方程/微分方程错题.md",
+    "考研数学/错题/微分方程/images/Pasted image 20260220221919.png",
+    "logs/mcp-puppeteer-2026-02-20.log",
+    "考研计划/2026-02-20 周五.md",
     "2026-02-19-fix-error-collector.md",
     "考研数学/错题/微分方程/images/Pasted image 20260219211906.png",
-    "考研数学/错题/一元函数积分/一元函数积分错题.md",
     "考研数学/错题/一元函数积分/images/Pasted image 20260219211906.png",
     "考研数学/错题/一元函数积分/images",
     "考研数学/错题/一元函数积分",
     "考研数学/错题/无穷级数/无穷级数错题.md",
     "2026-02-19-error-collector-plan.md",
     "2026-02-19-214015-implement-the-following-plan.txt",
-    "考研数学/images/Pasted image 20260219211906.png",
     "考研数学/images",
-    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
     "考研计划/2026-02-19 周四.md",
     "考研计划/周复盘/2026-W08 周复盘.md",
-    "考研计划/周复盘",
-    "考研数学/错题/无穷级数/images",
-    "考研数学/错题/无穷级数",
-    "logs/mcp-puppeteer-2026-02-19.log",
     "抖音素材/待发布/2026-02-18/2026-02-18.md",
-    "logs/mcp-puppeteer-2026-02-18.log",
-    "抖音素材/待发布/2026-02-18/images/02c47a219c1545e41927869930628b0e.png",
-    "抖音素材/待发布/2026-02-18/images/a67e7470546cf8aa2a153637b3724166.jpg",
     "考研计划/2026-02-18 周三.md",
-    "考研数学/错题/微分方程/images/Pasted image 20260217182010.png",
-    "考研数学/错题/微分方程/images/Pasted image 20260217182002.png",
     "考研计划/2026-02-17 周二.md",
     "考研计划/2026-02-16 周一.md",
     "抖音素材/待发布/2026-02-17/2026-02-17.md",
     "论文日报/2026-02-17.md",
     "论文日报/2026-02-15.md",
-    "考研数学/错题/微分方程/images/Pasted image 20260216215827.png",
-    "Pasted image 20260216215827.png",
     "2026-02-15.md",
     "GitHub周刊/2026-02-09~2026-02-15.md",
     "考研计划/2026-02-15 周日.md",
     "CLAUDE.md",
     "README.md",
     "考研计划/2026-02-15 周六.md",
-    "考研计划/2025-02-15 周六.md",
     "Excalidraw/微分方程错题知识图谱.canvas",
-    "Pasted image 20251227214026.png",
-    "copilot/copilot-conversations/将我的错题文件推送到我的远程仓库,仓库名为MBA-Study-Notes@20260213_011622.md",
-    "obsidian-skills/skills/obsidian-markdown/SKILL.md",
-    "obsidian-skills/skills/obsidian-bases/SKILL.md",
     "微分方程错题知识图谱.canvas",
     "未命名.canvas"
   ]
