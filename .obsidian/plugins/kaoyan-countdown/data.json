@@ -107,5 +107,15 @@
     "pomodorosToday": 0,
     "totalFocusMinutesToday": 0,
     "statsDate": "2026-02-16"
-  }
+  },
+  "bookmarks": [
+    {
+      "filePath": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
+      "state": {
+        "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
+      },
+      "label": "【A4】26李林880题数一高数部分做题本",
+      "timestamp": 1771515618137
+    }
+  ]
 }

@@ -39,6 +39,13 @@ export interface FocusStats {
   statsDate: string;
 }
 
+export interface StudyBookmark {
+  filePath: string;
+  state: any;
+  label: string;
+  timestamp: number;
+}
+
 export interface DailyTask {
   time: string;
   subject: string;
@@ -90,6 +97,7 @@ export interface KaoyanSettings {
   viewMode: ViewMode;
   focus: FocusSettings;
   focusStats: FocusStats;
+  bookmarks: StudyBookmark[];
 }
 
 /** Compute the third Saturday of December for the next exam cycle. */
@@ -160,4 +168,5 @@ export const DEFAULT_SETTINGS: KaoyanSettings = {
   viewMode: 'day',
   focus: { ...DEFAULT_FOCUS_SETTINGS },
   focusStats: { ...DEFAULT_FOCUS_STATS },
+  bookmarks: [],
 };

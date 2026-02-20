@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TAbstractFile, debounce } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TAbstractFile, debounce, Notice } from 'obsidian';
 import { getDaysRemaining, getCurrentPhase, getPhaseProgress, getCurrentMonthMilestone } from './phases';
 import { SUBJECT_LABELS, FOCUS_SUBJECTS } from './types';
 import type { ViewMode, DailyPlan, FocusMode, TimerSnapshot, Subject } from './types';
@@ -101,6 +101,39 @@ export class CountdownView extends ItemView {
     section.createEl('div', { cls: 'kc-days', text: `${days}` });
     section.createEl('div', { cls: 'kc-days-label', text: '天' });
     section.createEl('div', { cls: 'kc-exam-date', text: `考试日期：${this.plugin.settings.examDate}` });
+
+    this.renderBookmarks(section);
+  }
+
+  private renderBookmarks(container: HTMLElement) {
+    const bookmarks = this.plugin.settings.bookmarks;
+    if (!bookmarks || bookmarks.length === 0) return;
+
+    const wrapper = container.createDiv({ cls: 'kc-bookmarks-wrapper' });
+    wrapper.createEl('div', { cls: 'kc-bookmarks-title', text: '📖 继续学习' });
+
+    // Show only the most recent one prominently, others as small list or just the recent one
+    const recent = bookmarks[0];
+    const btn = wrapper.createEl('button', { cls: 'kc-bookmark-btn' });
+    btn.createEl('span', { cls: 'kc-bookmark-icon', text: '▶' });
+    btn.createEl('span', { cls: 'kc-bookmark-text', text: recent.label });
+
+    // Calculate time ago
+    const minutesAgo = Math.floor((Date.now() - recent.timestamp) / 60000);
+    const timeLabel = minutesAgo < 60 ? `${minutesAgo}分钟前` : `${Math.floor(minutesAgo / 60)}小时前`;
+    btn.createEl('span', { cls: 'kc-bookmark-time', text: timeLabel });
+    // 自动保存指示
+    btn.createEl('span', { cls: 'kc-bookmark-auto', text: '● 自动' });
+
+    btn.addEventListener('click', async () => {
+      const file = this.app.vault.getAbstractFileByPath(recent.filePath);
+      if (file) {
+        const leaf = this.app.workspace.getLeaf(false);
+        await leaf.openFile(file as any, { state: recent.state });
+      } else {
+        new Notice('文件已不存在');
+      }
+    });
   }
 
   private renderModeTabs(container: HTMLElement) {

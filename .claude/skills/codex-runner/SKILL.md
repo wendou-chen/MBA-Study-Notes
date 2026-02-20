@@ -40,17 +40,33 @@ Antigravity 直接驱动 Codex CLI，省去手动复制计划的步骤。
 
 ### Phase 2：启动 Codex
 
-使用 `run_command` 工具，在项目目录运行：
+> ✅ **正确命令**：`codex exec "<prompt>"` —— 非交互模式，**不需要 TTY**，可直接在 `run_command` 中使用。
+>
+> ❌ 不要用 `codex -a never "<prompt>"`：这是 TUI 模式，需要真实终端，在 `run_command` 里会报 `stdin is not a terminal`。
+>
+> ❌ 不要用 `Start-Process` 开新窗口：无法监控输出，无法读取结果。
 
-```powershell
-codex -a full "<prompt>"
+#### 2.1 先将 Prompt 写入计划文件
+
+用 `write_to_file` 将 Phase 1 的 Prompt 写到：
+```
+d:\a考研\Obsidian Vault\.agent\codex-current-plan.md
 ```
 
-参数说明：
-- `-a full`：自动审批所有文件变更（无需用户确认），适合自动化
-- `<prompt>`：Phase 1 组织的任务文字（注意转义引号）
+#### 2.2 用 `run_command` 执行 Codex
+
+```powershell
+$plan = Get-Content '.agent\codex-current-plan.md' -Raw; codex exec $plan
+```
+
+`run_command` 参数：
 - `Cwd`：设为 `d:\a考研\Obsidian Vault`
-- `WaitMsBeforeAsync`：设为 `10000`（10秒，等 codex 启动）
+- `SafeToAutoRun`：设为 `false`（Codex 会修改文件，需用户确认）
+- `WaitMsBeforeAsync`：设为 `15000`（等 15 秒，Codex 启动需要时间）
+- 然后用 `command_status` 持续轮询，直到 `Status: DONE`
+
+> 💡 **关于上下文保持**：`codex exec` 是一次性任务模式，每次调用都是独立会话，没有跨调用的上下文记忆。
+> 如果需要持续对话，需要在新开的终端中用交互模式 `codex`（用户手动操作）。
 
 ---
 
@@ -95,7 +111,7 @@ OutputCharacterCount: 2000
 
 ## 注意事项
 
-- **`-a full` 的风险**：codex 会自动执行所有文件变更，无二次确认。确保 prompt 描述准确再启动。
+- **`--approval-policy never` 的风险**：codex 会自动执行所有文件变更和 shell 命令，无二次确认。确保 prompt 描述准确再启动。
 - **长任务**：若任务预计超过 5 分钟，在 prompt 中告知 codex「请分步完成，每步完成后输出一行进度」。
 - **引号转义**：prompt 中如果含有单引号 `'`，在 PowerShell 命令中需改为双引号或转义。
 - **失败重试**：如果 codex 报错，读取错误信息后修改 prompt 重新启动，不要反复重试相同 prompt。
@@ -131,5 +147,7 @@ OutputCharacterCount: 2000
 
 **执行命令**：
 ```powershell
-codex -a full "按照以下要求修改文件：..."
+codex --approval-policy never "按照以下要求修改文件：..."
+# 简写等价：
+codex -a never "按照以下要求修改文件：..."
 ```
