@@ -21,6 +21,7 @@
 
 # Security
 .env
+chrome-profile/
 
 # Logs and System
 logs/

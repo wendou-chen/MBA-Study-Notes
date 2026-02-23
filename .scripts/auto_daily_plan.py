@@ -235,6 +235,11 @@ def build_prompt(
    科目emoji: 🔢 数学, 🔤 英语, 📡 专业课, 💻 项目, 📝 复盘
 5. 晚间复盘表: | 指标 | 计划 | 实际 |
 6. 关联区: 上一日/下一日 wikilink
+
+⚠️ 关键约束：
+- 直接输出纯 Markdown 内容，不要用 ```markdown ``` 代码块包裹
+- 不要在计划内容之后附加任何说明、解释或注释
+- 输出必须以 --- (frontmatter 开头) 开始，以关联区结束
 """
 
 
@@ -380,6 +385,32 @@ def main() -> int:
     )
 
     content = call_ai(prompt, repo_root)
+
+    # 清理 AI 输出：去除代码块包裹和尾部说明文字
+    content = content.strip()
+    if content.startswith("```"):
+        # 去掉首行 ```markdown 和末尾 ```
+        lines = content.split("\n")
+        lines = lines[1:]  # 去掉 ```markdown
+        # 找到最后一个 ``` 并截断
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == "```":
+                lines = lines[:i]
+                break
+        content = "\n".join(lines).strip()
+    # 截断关联区之后的多余内容（AI 可能附加说明）
+    marker = "## 🔗 关联"
+    idx = content.find(marker)
+    if idx != -1:
+        # 保留关联区内容（到下一个空行后的 wikilink 行结束）
+        after = content[idx:]
+        after_lines = after.split("\n")
+        keep = []
+        for line in after_lines:
+            keep.append(line)
+            if line.startswith("- 下一日："):
+                break
+        content = content[:idx] + "\n".join(keep)
 
     plan_dir.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content.rstrip() + "\n", encoding="utf-8")

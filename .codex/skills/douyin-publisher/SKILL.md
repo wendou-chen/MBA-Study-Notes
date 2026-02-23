@@ -10,23 +10,29 @@ description: 自动化抖音图文发布流程。适用于用户说"发抖音"�
 ## 前置条件
 
 - `.env` 中配置 `ANTHROPIC_API_KEY`（文案生成）
-- Puppeteer MCP 已配置（浏览器自动化，优先）或 Chrome DevTools MCP（备选）
-- 用户需以远程调试模式启动 Chrome：
-  ```bash
-  # Windows — 建议创建桌面快捷方式
-  "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+- 浏览器操作工具（按优先级）：
+  1. **Puppeteer MCP**（推荐）— 需要 `puppeteer_connect_active_tab` 或直连 `9222`，支持 `uploadFile` 穿透上传限制。
+  2. Chrome DevTools MCP（备选）
+  3. Antigravity browser_subagent（**避免使用**：在 iframe 本地图片上传和系统弹窗中受限，无法填入中文图片路径）
+- **Cookie 持久化**（重要）：使用专用浏览器启动脚本，避免每次重新登录
+  ```powershell
+  # 首次使用 — 运行启动脚本（支持 -Chrome 参数，对 Puppeteer MCP 更友好）
+  .agent\skills\douyin-publisher\scripts\launch_douyin_browser.ps1 -Chrome
+  # 也可以直接用默认 Edge / 开发测试
+  .agent\skills\douyin-publisher\scripts\launch_douyin_browser.bat
   ```
-- 首次使用时在该 Chrome 中手动登录 `creator.douyin.com`，之后 session 自动持久化（通常数周有效）
+  - 脚本会以 `--user-data-dir` 参数启动 Chrome/Edge，Cookie 保存到 `chrome-profile/douyin-session/`
+  - 首次需手动登录 `creator.douyin.com`，之后 session 自动持久化（通常数周有效）
+  - 配合 `--remote-debugging-port=9222`，自动化工具可直接连接
 - 素材笔记由脚本自动创建（`ensure_daily_note()`），无需手动建文件夹
 
-## MCP 工具选择
+| 工具 | 优势 | 劣势 |
+|------|------|------|
+| **Puppeteer MCP**（推荐） | 支持通过 `elementHandle.uploadFile()` 等极高权限底层接口直接往隐藏的 `<input type="file">` 中填入绝对路径，**能完美突破跨域 iframe 和系统级对话框阻断**。 | 需要保持并连接 9222 端口，初次调用需确认 DOM 结构。 |
+| Chrome DevTools MCP | 同样通过 CDP 协议支持文件注入，拥有完整 a11y 树。 | 需要在节点操作前 `take_snapshot`，响应稍慢。 |
+| Antigravity browser_subagent | 原生集成，视觉定位找按钮非常智能。 | **严重受限**：基于 Playwright 的底层纯键盘键鼠模拟映射，如果强行向受保护或弹窗注入中文字符（路径中含『考研』等）会立即由于键盘映射缺失报错崩溃，无法突破文件上传框。 |
 
-| MCP | 优势 | 劣势 |
-|-----|------|------|
-| **Puppeteer MCP**（推荐） | CSS 选择器直接操作，速度快，无需 snapshot 往返 | 需要 puppeteer_connect_active_tab 连接 |
-| Chrome DevTools MCP | 完整 a11y 树，精确元素定位 | 每次操作需 take_snapshot，往返慢 |
-
-优先使用 Puppeteer MCP。如果 Puppeteer 不可用，回退到 Chrome DevTools MCP。
+**全面拥抱 Puppeteer MCP 进行自动化发布流程**。发布动作前先确认已通过启动脚本（优先配 `-Chrome`）打开带 9222 调试端口的持久化浏览器。
 
 ## 素材目录结构
 
@@ -77,23 +83,29 @@ description: 自动化抖音图文发布流程。适用于用户说"发抖音"�
 
 > ⚠️ **标签命名规则**：使用平台高热度缩写，如 `#27考研`（6.0亿）而非 `#2027考研`（热度低）。发布前可在话题搜索中确认热度。
 
-### Step 4: 浏览器上传（Puppeteer MCP 优先）
+### Step 4: 浏览器上传
 
 > **工具优先级**：Puppeteer MCP > Chrome DevTools MCP
-> 两者都通过 `--remote-debugging-port=9222` 连接用户真实 Chrome，Cookie/登录状态由 Chrome 原生管理。
-> Puppeteer 使用 CSS 选择器直接操作，无需 snapshot 往返，速度显著更快。
+> 使用持久化浏览器脚本启动 Chrome，Cookie/登录状态保存在 `chrome-profile/douyin-session/` 目录。
+> 🚨 核心逻辑：Puppeteer MCP 能够通过 CDP 底层协议使用 `uploadFile` 之类的高权限 API 直接向 file_input 发送文件字节，必须利用这一特性实现全自动，而绝不应该用鼠标瞎点弹出的系统“打开文件”对话框。
+
+**4.0 确保持久化浏览器已启动**
+```powershell
+# 必须附加 9222 端口开启调试，推荐带 -Chrome
+.agent\skills\douyin-publisher\scripts\launch_douyin_browser.ps1 -Chrome
+```
 
 **4.1 连接浏览器并导航**
 ```
-puppeteer_connect_active_tab → 连接 Chrome
-puppeteer_navigate url="https://creator.douyin.com/creator-micro/content/upload?enter_from=dou_web"
+mcp_puppeteer_puppeteer_connect_active_tab → 连接
+mcp_puppeteer_puppeteer_navigate url="https://creator.douyin.com/creator-micro/content/upload?enter_from=dou_web"
 ```
 
 **4.2 检查登录状态**
 ```
-puppeteer_screenshot → 检查是否已登录
+mcp_puppeteer_puppeteer_screenshot → 检测是否进入图文后台
 ```
-如看到二维码/登录页 → 提示用户扫码（一次性，session 持久化数周）
+如看到二维码/登录页 → 提醒用户手动扫码（由于有持久化会话，通常只在数周内扫一次）；完成后继续。
 
 **4.3 选择图文模式**
 点击"发布图文"标签切换到图文上传：
@@ -152,7 +164,17 @@ puppeteer_evaluate: () => {
 
 使用 `document.execCommand('insertText', false, '#标签名')` 模拟键盘输入触发话题搜索。
 
-**4.8 预览确认**
+**4.8 标签校验（发布前强制）**
+
+在进入预览前，执行以下检查并修正：
+```
+1. 核对最终标签是否与目标标签清单一致（默认：#考研 #考研数学 #备考日常 #考研日记 #27考研）
+2. 发现无关标签（如临时测试标签、情绪标签）立即删除
+3. 每个标签都通过平台话题弹窗点选一次，确保是可识别话题标签而不是普通文本
+4. 以预览区最终展示为准，再进入用户确认
+```
+
+**4.9 预览确认**
 ```
 puppeteer_screenshot → 截图预览，展示给用户确认
 ```
@@ -177,8 +199,20 @@ puppeteer_screenshot → 截图预览，展示给用户确认
 
 ## 脚本
 
-素材扫描、文案生成、归档等非交互操作由 `scripts/douyin_publish.py` 处理。
-浏览器操作优先通过 Puppeteer MCP（`puppeteer_connect_active_tab` 连接用户 Chrome），备选 Chrome DevTools MCP。
+| 脚本 | 功能 |
+|------|------|
+| `scripts/douyin_publish.py` | 素材扫描、文案生成、归档等非交互操作 |
+| `scripts/launch_douyin_browser.ps1` | 启动持久化 Chrome/Edge 浏览器（默认 Edge，可通过 `-Chrome` 切换） |
+| `scripts/launch_douyin_browser.bat` | 批处理简易版启动（默认启动 Edge 版） |
+
+浏览器操作**核心强制要求**：优先且尽可能只使用 **Puppeteer MCP**（`puppeteer_connect_active_tab` 或 直连 WebSocket），以确保能够用 `elementHandle.uploadFile()` 方法直接传送照片并穿透文件上传框。
+**避免使用**基于视觉/模拟输入的普通浏览器 Agent，因为他们会被系统的选中文件对话框阻断，并触发含有中文字符时的 `Unknown key` 映射崩溃。
+
+### Cookie 持久化机制
+- 配置目录：`chrome-profile/douyin-session/`（自动创建，已加入 .gitignore）
+- 启动参数：`--user-data-dir` + `--remote-debugging-port=9222`
+- 首次登录后 Cookie 自动保存，后续启动免登录
+- Session 通常有效数周，过期后需重新扫码一次
 
 ## 踩坑记录
 
@@ -187,6 +221,22 @@ puppeteer_screenshot → 截图预览，展示给用户确认
 - **原因**：抖音编辑器的话题标签是特殊 DOM 节点（带 data 属性），只有通过话题搜索弹窗点选才能创建
 - **解决**：文案和标签分开处理。先粘贴纯文案，再用 `insertText` + 点选弹窗逐个添加话题
 
+### Playwright / UI-Automation 本地文件上传陷阱（2026-02-23）
+- **现象**：尝试使用 Antigravity browser_subagent 代替 Puppeteer 时遇到无法上传本地图片的问题。
+- **原因**：
+  1. 上传组件在跨域 iframe 里，限制了 DOM 选择。
+  2. 点击上传后跳出系统的 File Picker，超越了浏览器内 DOM 控制域。
+  3. UI 键位映射失效：当工具试图在系统框或受控 input 暴力强制打字时，因为带着诸如 `"考研"` 这样的中文字符的绝对路径，触发了 `Unknown key: "考"` 崩溃。
+- **解决**：统一回归到 Puppeteer MCP 规范，使用纯粹的 CDP 级别 API（`uploadFile`）往底层 input 句柄注入文件流。
+
 ### 标签命名热度优先（2026-02-20）
 - `#27考研`（6.0亿热度）>> `#2027考研`（热度极低）
 - 平台话题搜索会自动匹配缩写，优先选择高热度版本
+
+### 标签误填未校验（2026-02-24）
+- **现象**：发布页已到最后一步，但标签里混入不在目标清单内的标签，导致用户认为标签失败。
+- **原因**：只完成了“填入文本标签”，未执行“最终标签一致性校验”；且没有在预览前逐项核对目标标签。
+- **修复**：发布前强制执行标签校验流程（见 4.8）：
+  - 仅保留目标标签：`#考研 #考研数学 #备考日常 #考研日记 #27考研`（用户未另行指定时）
+  - 删除无关标签后重新检查预览区文案
+- **规则升级**：以后在“停在发布前确认”前，必须明确回报“标签已按目标清单校验通过”。

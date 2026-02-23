@@ -1,14 +1,19 @@
 {
-  "session_id": "ai-1771589239-366110",
+  "session_id": "ai-1771693943-19846",
   "ccb_project_id": "5c48695127549ddb3afea4bdadb94d5105108b71ab9f75f2c897214c0f9e47be",
   "work_dir": "/mnt/d/a考研/Obsidian Vault",
   "work_dir_norm": "d:/a考研/obsidian vault",
   "start_dir": "/mnt/d/a考研/Obsidian Vault",
   "terminal": "tmux",
-  "active": false,
+  "active": true,
   "started_at": "2026-02-20 20:07:20",
-  "updated_at": "2026-02-20 20:07:20",
-  "pane_id": "%5",
+  "updated_at": "2026-02-24 01:19:37",
+  "pane_id": "%1",
   "pane_title_marker": "CCB-Claude",
-  "ended_at": "2026-02-20 20:10:25"
+  "ended_at": "2026-02-22 01:23:34",
+  "claude_session_path": "C:\\Users\\admin\\.claude\\projects\\d--a---Obsidian-Vault\\2a65e1e9-0053-4691-8b8a-a422cf9d676c.jsonl",
+  "claude_session_id": "2a65e1e9-0053-4691-8b8a-a422cf9d676c",
+  "old_claude_session_id": "990ca5f8-cf16-4c02-b5c2-e39499493ddf",
+  "old_claude_session_path": "C:\\Users\\admin\\.claude\\projects\\d--a---Obsidian-Vault\\fb141085-1cf0-4122-a592-27e53072ecfb.jsonl",
+  "old_updated_at": "2026-02-24 01:09:34"
 }

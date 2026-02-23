@@ -25,12 +25,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "考研数学/解题板.md",
+                "file": "抖音素材/待发布/2026-02-23/2026-02-23.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "解题板"
+              "title": "2026-02-23"
             }
           }
         ],
@@ -179,26 +179,6 @@
             }
           },
           {
-            "id": "d55e4b21b494ad00",
-            "type": "leaf",
-            "state": {
-              "type": "copilot-chat-view",
-              "state": {},
-              "icon": "message-square",
-              "title": "Copilot"
-            }
-          },
-          {
-            "id": "a5f06658646bd0e0",
-            "type": "leaf",
-            "state": {
-              "type": "git-view",
-              "state": {},
-              "icon": "git-pull-request",
-              "title": "Source Control"
-            }
-          },
-          {
             "id": "658710aacf60b24f",
             "type": "leaf",
             "state": {
@@ -207,16 +187,28 @@
               "icon": "clock",
               "title": "考研倒计时"
             }
+          },
+          {
+            "id": "6b57a5fe1d0c8ad7",
+            "type": "leaf",
+            "state": {
+              "type": "claudian-view",
+              "state": {},
+              "icon": "bot",
+              "title": "Claudian"
+            }
           }
         ],
-        "currentTab": 7
+        "currentTab": 6
       }
     ],
     "direction": "horizontal",
-    "width": 200
+    "width": 533.5,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
+      "claudian:Open Claudian": false,
       "kaoyan-countdown:考研倒计时": false,
       "bases:新建数据库": false,
       "switcher:打开快速切换": false,
@@ -232,37 +224,44 @@
   },
   "active": "cef4cb207a80221d",
   "lastOpenFiles": [
-    "抖音素材/发布记录.md",
-    "抖音素材/待发布/2026-02-20/2026-02-20.md",
-    "抖音素材/已发布/2026-02-20/images/Pasted image 20260220230821.png",
-    "抖音素材/已发布/2026-02-20/images/c6edfce62940cb4582440ba381c4910b.png",
-    "抖音素材/已发布/2026-02-20/images/68cdeaef686f0d635a20166fc43239d5.png",
-    "抖音素材/已发布/2026-02-20/images",
-    "抖音素材/已发布/2026-02-20/2026-02-20.md",
-    "抖音素材/已发布/2026-02-20",
-    "抖音素材/待发布/2026-02-20/images/Pasted image 20260220230821.png",
-    "抖音素材/待发布/2026-02-20/images/68cdeaef686f0d635a20166fc43239d5.png",
-    "抖音素材/待发布/2026-02-20/images/c6edfce62940cb4582440ba381c4910b.png",
-    "考研数学/解题板.md",
-    "抖音素材/待发布/2026-02-20/images",
-    "抖音素材/待发布/2026-02-20",
-    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
+    "抖音素材/待发布/2026-02-23/images/077e382562478d03e727e618f9cfa768 1.png",
+    "抖音素材/待发布/2026-02-23/images/02a36857dd9306da8636ef4ce625677c.png",
+    "抖音素材/待发布/2026-02-23/images/Pasted image 20260224011206.png",
+    "抖音素材/待发布/2026-02-23/2026-02-23.md",
+    "抖音素材/待发布/2026-02-23/images/842e72289c91a16662f6a48628376e54.jpg",
+    "抖音素材/待发布/2026-02-23/images/Pasted image 20260224011155.png",
+    "logs/mcp-puppeteer-2026-02-24.log",
+    "抖音素材/待发布/2026-02-23/images/eabe8accd0df57cb917c5196d38a2247 1.png",
+    "抖音素材/待发布/2026-02-23/images/eabe8accd0df57cb917c5196d38a2247.png",
+    "考研计划/2026-02-23 周一.md",
+    "抖音素材/待发布/2026-02-23/images/077e382562478d03e727e618f9cfa768.png",
+    "抖音素材/待发布/2026-02-23/images",
     "考研数学/固定解法速查表.md",
+    "抖音素材/待发布/2026-02-23",
+    "考研数学/解题板.md",
+    "抖音素材/待发布/2026-02-22/2026-02-22.md",
+    "抖音素材/待发布/2026-02-22/images/316ef2f22164504a89c200a2957f7ff6.png",
+    "抖音素材/待发布/2026-02-22/images/8f96979014518b231bb6fc8b6b0943bf.png",
+    "抖音素材/发布记录.md",
+    "抖音素材/待发布/2026-02-22/images",
+    "抖音素材/待发布/2026-02-22",
+    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
+    "考研计划/2026-02-22 周日.md",
+    "logs/mcp-puppeteer-2026-02-22.log",
+    "考研计划/2026-02-15 周日.md",
+    "考研计划/2026-02-21 周六.md",
+    "考研英语/写作素材库.md",
+    "考研英语",
+    "logs/mcp-puppeteer-2026-02-20.log.gz",
+    "logs/mcp-puppeteer-2026-02-21.log",
+    "抖音素材/待发布/2026-02-20/2026-02-20.md",
+    "抖音素材/已发布/2026-02-20/2026-02-20.md",
     "考研数学/错题/一元函数积分/一元函数积分错题.md",
-    "考研数学/images/Pasted image 20260220223449.png",
     "考研数学/错题/微分方程/微分方程错题.md",
-    "考研数学/错题/微分方程/images/Pasted image 20260220221919.png",
-    "logs/mcp-puppeteer-2026-02-20.log",
     "考研计划/2026-02-20 周五.md",
     "2026-02-19-fix-error-collector.md",
-    "考研数学/错题/微分方程/images/Pasted image 20260219211906.png",
-    "考研数学/错题/一元函数积分/images/Pasted image 20260219211906.png",
-    "考研数学/错题/一元函数积分/images",
-    "考研数学/错题/一元函数积分",
     "考研数学/错题/无穷级数/无穷级数错题.md",
     "2026-02-19-error-collector-plan.md",
-    "2026-02-19-214015-implement-the-following-plan.txt",
-    "考研数学/images",
     "考研计划/2026-02-19 周四.md",
     "考研计划/周复盘/2026-W08 周复盘.md",
     "抖音素材/待发布/2026-02-18/2026-02-18.md",
@@ -270,14 +269,6 @@
     "考研计划/2026-02-17 周二.md",
     "考研计划/2026-02-16 周一.md",
     "抖音素材/待发布/2026-02-17/2026-02-17.md",
-    "论文日报/2026-02-17.md",
-    "论文日报/2026-02-15.md",
-    "2026-02-15.md",
-    "GitHub周刊/2026-02-09~2026-02-15.md",
-    "考研计划/2026-02-15 周日.md",
-    "CLAUDE.md",
-    "README.md",
-    "考研计划/2026-02-15 周六.md",
     "Excalidraw/微分方程错题知识图谱.canvas",
     "微分方程错题知识图谱.canvas",
     "未命名.canvas"

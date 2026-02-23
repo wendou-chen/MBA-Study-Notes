@@ -24,16 +24,48 @@ HASHTAGS = "#考研 #考研数学 #备考日常 #考研日记 #2027考研 #考�
 DAILY_NOTE_TEMPLATE = """\
 ---
 date: {date}
-status: pending
-tags: [douyin, pending]
+type: douyin-draft
+status: 待发布
+style: ""
+tags:
+  - 抖音
+  - 素材
 ---
-# 抖音素材 · {date}
 
-## 素材
-> 在下方粘贴今日图片（Ctrl+V）
+# 📱 {short_date} 抖音图文素材
 
-## 文案草稿
-> 可选：写下文案灵感，发布时自动润色
+
+## 📸 图片素材
+
+> [!info] 在下方空白处粘贴图片（Ctrl+V）
+> 抖音图文上限 **9 张**，建议 3–6 张。图片会自动保存到 `images/` 子目录。
+
+
+
+
+
+
+## ✏️ 文案草稿
+
+> [!tip] 在下方空白处写下你想表达的内容
+> 关键词、情绪、灵感片段都行，AI 会帮你润色成完整文案。
+
+
+
+
+
+
+## 🏷️ 标签备选
+
+#考研 #27考研 #备考日常 #考研日记 #考研数学
+
+
+## 📋 发布检查
+
+- [ ] 图片已粘贴（≤ 9 张）
+- [ ] 文案草稿已填写
+- [ ] 风格已选择（任务汇报 / 情感润色）
+- [ ] 准备发布 → 告诉 AI「发抖音」
 """
 
 TASK_REPORT_PROMPT = """\
@@ -77,8 +109,12 @@ def ensure_daily_note(date_str: str | None = None) -> Path:
     if not note_path.exists():
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "images").mkdir(exist_ok=True)
+        # short_date: "2.24" 格式用于标题
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        short_date = f"{dt.month}.{dt.day}"
         note_path.write_text(
-            DAILY_NOTE_TEMPLATE.format(date=date_str), encoding="utf-8"
+            DAILY_NOTE_TEMPLATE.format(date=date_str, short_date=short_date),
+            encoding="utf-8",
         )
         print(f"已创建素材笔记：{note_path}")
     return note_path
@@ -89,8 +125,12 @@ def _extract_draft(note_path: Path) -> str | None:
     if not note_path.exists():
         return None
     text = note_path.read_text(encoding="utf-8")
-    marker = "## 文案草稿"
+    marker = "## ✏️ 文案草稿"
     idx = text.find(marker)
+    if idx == -1:
+        # 兼容旧模板
+        marker = "## 文案草稿"
+        idx = text.find(marker)
     if idx == -1:
         return None
     draft_section = text[idx + len(marker):].strip()

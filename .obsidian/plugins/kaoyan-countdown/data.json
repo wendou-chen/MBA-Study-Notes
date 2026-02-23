@@ -108,6 +108,12 @@
     "totalFocusMinutesToday": 0,
     "statsDate": "2026-02-16"
   },
+  "ai": {
+    "provider": "anthropic",
+    "apiKey": "***REDACTED_API_KEY***",
+    "baseUrl": "https://api.anthropic.com",
+    "model": "claude-opus-4-6-20250616"
+  },
   "bookmarks": [
     {
       "filePath": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
