@@ -1,48 +1,42 @@
-# Obsidian specific
+﻿# Obsidian local state
 .obsidian/workspace
 .obsidian/workspace-mobile
-.obsidian/cache
+.obsidian/workspace.json
+.obsidian/cache/
+.obsidian/community-plugins.json
 .trash/
 
-# Large files
-*.pdf
-*.mp4
-*.mov
-*.avi
-*.mkv
-*.zip
-*.rar
-*.7z
-*.tar
-*.gz
-*.exe
-*.dll
-*.iso
+# Plugin runtime/local data
+.obsidian/plugins/*/data.json
+.obsidian/plugins/copilot/
 
-# Security
-.env
-chrome-profile/
-.obsidian/plugins/obsidian-local-rest-api/data.json
-.obsidian/plugins/kaoyan-countdown/data.json
+# Local agent/session state
 .ccb/
 .claude/sessions/
+.claude/claudian-settings.json
+.agent/settings.local.json
+.claude/settings.local.json
+.codex/settings.local.json
+.codexidian/
 
-# Logs and System
-logs/
-*.log
-Thumbs.db
-.DS_Store
-.obsidian/plugins/copilot/data.json
-
-# Python
-__pycache__/
-*.pyc
-
-# Node
-node_modules/
-
-# Douyin assets (images/videos, too large for git)
+# Personal/private content
+copilot/copilot-conversations/
+考研数学/错题/
 抖音素材/
 
-# Obsidian auto-generated junk
+# Local security/runtime artifacts
+.env
+chrome-profile/
+.tmp/
+logs/
+*.log
+
+# System junk
+Thumbs.db
+.DS_Store
 未命名*.base
+
+# Common build/runtime
+__pycache__/
+*.pyc
+node_modules/
