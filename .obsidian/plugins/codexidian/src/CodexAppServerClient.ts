@@ -1,6 +1,16 @@
 import { ChildProcess, spawn } from "child_process";
 
-import type { CodexidianSettings, TurnHandlers, TurnResult } from "./types";
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  CodexidianSettings,
+  ToolCompleteInfo,
+  ToolStartInfo,
+  UserInputRequest,
+  UserInputResponse,
+  TurnHandlers,
+  TurnResult,
+} from "./types";
 
 interface PendingRequest {
   resolve: (value: any) => void;
@@ -24,26 +34,78 @@ export class CodexAppServerClient {
   private pendingTurns = new Map<string, PendingTurn>();
   private preTurnDeltas = new Map<string, string[]>();
   private preTurnToolDeltas = new Map<string, string[]>();
+  private preTurnThinkingDeltas = new Map<string, string[]>();
+  private preTurnToolStarts = new Map<string, ToolStartInfo[]>();
+  private preTurnToolCompletes = new Map<string, ToolCompleteInfo[]>();
   private preTurnResult = new Map<string, TurnResult>();
   private turnHasMessageDelta = new Set<string>();
+  private turnHasThinkingDelta = new Set<string>();
+  private turnActiveToolItemId = new Map<string, string>();
   private startPromise: Promise<void> | null = null;
   private disposed = false;
 
   private currentThreadId: string | null = null;
+  private currentTurnId: string | null = null;
 
   constructor(
     private readonly getSettings: () => CodexidianSettings,
     private readonly getVaultPath: () => string,
     private readonly onThreadIdChanged: (threadId: string) => void,
     private readonly onSystemMessage: (message: string) => void,
+    private readonly onApprovalRequest?: (request: ApprovalRequest) => Promise<ApprovalDecision>,
+    private readonly onUserInputRequest?: (request: UserInputRequest) => Promise<UserInputResponse>,
   ) {}
 
   getThreadId(): string | null {
     return this.currentThreadId;
   }
 
+  getCurrentTurnId(): string | null {
+    return this.currentTurnId;
+  }
+
   setThreadId(threadId: string | null): void {
     this.currentThreadId = threadId;
+  }
+
+  async cancelTurn(turnId: string): Promise<boolean> {
+    const normalizedTurnId = turnId.trim();
+    if (!normalizedTurnId) {
+      return false;
+    }
+
+    let cancelled = false;
+
+    if (this.process && !this.process.killed) {
+      try {
+        await this.request("turn/cancel", { turnId: normalizedTurnId });
+        cancelled = true;
+      } catch {
+        // Keep local cancellation fallback even if protocol support differs.
+      }
+    }
+
+    const pending = this.pendingTurns.get(normalizedTurnId);
+    if (pending) {
+      this.pendingTurns.delete(normalizedTurnId);
+      pending.resolve({
+        threadId: this.currentThreadId ?? "",
+        turnId: normalizedTurnId,
+        status: "cancelled",
+        errorMessage: "Cancelled by user",
+      });
+      cancelled = true;
+    }
+
+    this.preTurnDeltas.delete(normalizedTurnId);
+    this.preTurnToolDeltas.delete(normalizedTurnId);
+    this.preTurnThinkingDeltas.delete(normalizedTurnId);
+    this.preTurnToolStarts.delete(normalizedTurnId);
+    this.preTurnToolCompletes.delete(normalizedTurnId);
+    this.preTurnResult.delete(normalizedTurnId);
+    this.clearTurnTransientState(normalizedTurnId);
+    this.clearCurrentTurnId(normalizedTurnId);
+    return cancelled;
   }
 
   async restart(): Promise<void> {
@@ -64,6 +126,8 @@ export class CodexAppServerClient {
     for (const [turnId, turn] of this.pendingTurns) {
       turn.reject(new Error(`Turn ${turnId} interrupted: app-server stopped.`));
       this.pendingTurns.delete(turnId);
+      this.clearTurnTransientState(turnId);
+      this.clearCurrentTurnId(turnId);
     }
 
     if (this.process && !this.process.killed) {
@@ -74,6 +138,16 @@ export class CodexAppServerClient {
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
     this.startPromise = null;
+    this.currentTurnId = null;
+    this.preTurnDeltas.clear();
+    this.preTurnToolDeltas.clear();
+    this.preTurnThinkingDeltas.clear();
+    this.preTurnToolStarts.clear();
+    this.preTurnToolCompletes.clear();
+    this.preTurnResult.clear();
+    this.turnHasMessageDelta.clear();
+    this.turnHasThinkingDelta.clear();
+    this.turnActiveToolItemId.clear();
   }
 
   async newThread(): Promise<string> {
@@ -82,7 +156,11 @@ export class CodexAppServerClient {
     return threadId;
   }
 
-  async sendTurn(prompt: string, handlers: TurnHandlers = {}): Promise<TurnResult> {
+  async sendTurn(
+    prompt: string,
+    handlers: TurnHandlers = {},
+    options?: { model?: string; effort?: string },
+  ): Promise<TurnResult> {
     await this.start();
     const threadId = await this.ensureThread();
 
@@ -92,8 +170,8 @@ export class CodexAppServerClient {
       cwd: null,
       approvalPolicy: null,
       sandboxPolicy: null,
-      model: null,
-      effort: null,
+      model: options?.model?.trim() || null,
+      effort: options?.effort || null,
       summary: null,
       personality: null,
       outputSchema: null,
@@ -104,6 +182,7 @@ export class CodexAppServerClient {
     if (!turnId) {
       throw new Error("turn/start did not return turn id.");
     }
+    this.currentTurnId = turnId;
 
     return await new Promise<TurnResult>((resolve, reject) => {
       const turnTimeout = setTimeout(() => {
@@ -111,6 +190,8 @@ export class CodexAppServerClient {
           return;
         }
         this.pendingTurns.delete(turnId);
+        this.clearTurnTransientState(turnId);
+        this.clearCurrentTurnId(turnId);
         reject(new Error("Turn timed out after 15 minutes."));
       }, 15 * 60 * 1000);
 
@@ -118,10 +199,14 @@ export class CodexAppServerClient {
         handlers,
         resolve: (result) => {
           clearTimeout(turnTimeout);
+          this.clearTurnTransientState(turnId);
+          this.clearCurrentTurnId(turnId);
           resolve(result);
         },
         reject: (error) => {
           clearTimeout(turnTimeout);
+          this.clearTurnTransientState(turnId);
+          this.clearCurrentTurnId(turnId);
           reject(error);
         },
         startedAt: Date.now(),
@@ -143,10 +228,36 @@ export class CodexAppServerClient {
         this.preTurnToolDeltas.delete(turnId);
       }
 
+      const preThinkingDeltas = this.preTurnThinkingDeltas.get(turnId);
+      if (preThinkingDeltas && preThinkingDeltas.length > 0) {
+        for (const delta of preThinkingDeltas) {
+          handlers.onThinkingDelta?.(delta);
+        }
+        this.preTurnThinkingDeltas.delete(turnId);
+      }
+
+      const preToolStarts = this.preTurnToolStarts.get(turnId);
+      if (preToolStarts && preToolStarts.length > 0) {
+        for (const info of preToolStarts) {
+          handlers.onToolStart?.(info);
+        }
+        this.preTurnToolStarts.delete(turnId);
+      }
+
+      const preToolCompletes = this.preTurnToolCompletes.get(turnId);
+      if (preToolCompletes && preToolCompletes.length > 0) {
+        for (const info of preToolCompletes) {
+          handlers.onToolComplete?.(info);
+        }
+        this.preTurnToolCompletes.delete(turnId);
+      }
+
       const result = this.preTurnResult.get(turnId);
       if (result) {
         this.preTurnResult.delete(turnId);
         this.pendingTurns.delete(turnId);
+        this.clearTurnTransientState(turnId);
+        this.clearCurrentTurnId(turnId);
         resolve(result);
       }
     });
@@ -207,9 +318,12 @@ export class CodexAppServerClient {
       for (const [turnId, turn] of this.pendingTurns) {
         turn.reject(new Error(msg));
         this.pendingTurns.delete(turnId);
+        this.clearTurnTransientState(turnId);
+        this.clearCurrentTurnId(turnId);
       }
 
       this.process = null;
+      this.currentTurnId = null;
     });
 
     await this.request("initialize", {
@@ -385,36 +499,42 @@ export class CodexAppServerClient {
     try {
       let result: any;
 
-      if (method === "item/commandExecution/requestApproval") {
-        result = { decision: settings.autoApproveRequests ? "accept" : "decline" };
-      } else if (method === "item/fileChange/requestApproval") {
-        result = { decision: settings.autoApproveRequests ? "accept" : "decline" };
+      if (this.isApprovalMethod(method)) {
+        const approvalType = this.mapApprovalType(method);
+        const approvalRequest: ApprovalRequest = {
+          requestId,
+          type: approvalType,
+          command: this.extractApprovalCommand(message.params),
+          filePath: this.extractApprovalFilePath(message.params),
+          cwd: this.extractApprovalCwd(message.params),
+          params: message.params,
+        };
+        const decision = await this.resolveApprovalDecision(approvalRequest, settings.autoApproveRequests);
+
+        if (method === "execCommandApproval" || method === "applyPatchApproval") {
+          result = { decision: decision === "accept" ? "approved" : "denied" };
+        } else {
+          result = { decision };
+        }
       } else if (method === "item/tool/requestUserInput") {
-        const answers: Record<string, { answers: string[] }> = {};
-        const questions = Array.isArray(message.params?.questions) ? message.params.questions : [];
+        const userInputRequest = this.buildUserInputRequest(requestId, message.params);
+        let response: UserInputResponse | null = null;
 
-        for (const q of questions) {
-          const id = typeof q?.id === "string" ? q.id : "";
-          if (!id) {
-            continue;
-          }
-
-          const options = Array.isArray(q.options) ? q.options : [];
-          if (options.length > 0 && typeof options[0]?.label === "string") {
-            answers[id] = { answers: [options[0].label] };
-          } else {
-            answers[id] = { answers: [""] };
+        if (this.onUserInputRequest) {
+          try {
+            response = await this.withTimeout(this.onUserInputRequest(userInputRequest), 60_000);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            this.onSystemMessage(`[input] Request timed out, using fallback response. (${reason})`);
           }
         }
 
-        result = { answers };
+        result = response ?? this.buildDefaultUserInputResponse(userInputRequest);
       } else if (method === "item/tool/call") {
         result = {
           success: false,
           contentItems: [{ type: "inputText", text: "Dynamic tool call is not handled by Codexidian." }],
         };
-      } else if (method === "execCommandApproval" || method === "applyPatchApproval") {
-        result = { decision: settings.autoApproveRequests ? "approved" : "denied" };
       } else {
         this.writeJson({
           id: requestId,
@@ -437,6 +557,162 @@ export class CodexAppServerClient {
         },
       });
     }
+  }
+
+  private isApprovalMethod(method: string): boolean {
+    return (
+      method === "item/commandExecution/requestApproval"
+      || method === "item/fileChange/requestApproval"
+      || method === "execCommandApproval"
+      || method === "applyPatchApproval"
+    );
+  }
+
+  private mapApprovalType(method: string): ApprovalRequest["type"] {
+    if (method === "item/commandExecution/requestApproval") return "commandExecution";
+    if (method === "item/fileChange/requestApproval") return "fileChange";
+    if (method === "execCommandApproval") return "execCommand";
+    return "applyPatch";
+  }
+
+  private async resolveApprovalDecision(
+    request: ApprovalRequest,
+    autoApproveRequests: boolean,
+  ): Promise<ApprovalDecision> {
+    const requestSummary = this.buildApprovalSummary(request);
+
+    if (autoApproveRequests) {
+      this.onSystemMessage(`[approval] Auto-approved ${requestSummary}`);
+      return "accept";
+    }
+
+    if (this.onApprovalRequest) {
+      try {
+        return await this.withTimeout(this.onApprovalRequest(request), 60_000);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.onSystemMessage(`[approval] Timed out. Denied ${requestSummary}. (${reason})`);
+        return "decline";
+      }
+    }
+
+    this.onSystemMessage(`[approval] No approval UI available. Denied ${requestSummary}.`);
+    return "decline";
+  }
+
+  private buildApprovalSummary(request: ApprovalRequest): string {
+    if (request.command) {
+      return `${request.type} (${request.command.slice(0, 80)})`;
+    }
+    if (request.filePath) {
+      return `${request.type} (${request.filePath})`;
+    }
+    return request.type;
+  }
+
+  private extractApprovalCommand(params: any): string | undefined {
+    const direct = params?.command
+      ?? params?.cmd
+      ?? params?.input?.command
+      ?? params?.request?.command
+      ?? params?.request?.cmd;
+
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct.trim();
+    }
+
+    if (Array.isArray(params?.command) && params.command.every((part: unknown) => typeof part === "string")) {
+      return params.command.join(" ").trim() || undefined;
+    }
+
+    return undefined;
+  }
+
+  private extractApprovalFilePath(params: any): string | undefined {
+    const direct = params?.filePath
+      ?? params?.path
+      ?? params?.targetPath
+      ?? params?.request?.filePath
+      ?? params?.request?.path
+      ?? params?.file?.path;
+
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct.trim();
+    }
+
+    const changePath = Array.isArray(params?.changes)
+      ? params.changes.find((entry: any) => typeof entry?.path === "string")?.path
+      : undefined;
+    if (typeof changePath === "string" && changePath.trim().length > 0) {
+      return changePath.trim();
+    }
+
+    return undefined;
+  }
+
+  private extractApprovalCwd(params: any): string | undefined {
+    const cwd = params?.cwd ?? params?.workingDirectory ?? params?.request?.cwd;
+    if (typeof cwd === "string" && cwd.trim().length > 0) {
+      return cwd.trim();
+    }
+    return undefined;
+  }
+
+  private buildUserInputRequest(requestId: string | number, params: any): UserInputRequest {
+    const rawQuestions = Array.isArray(params?.questions) ? params.questions : [];
+    const questions = rawQuestions
+      .map((q: any) => {
+        const id = typeof q?.id === "string" ? q.id : "";
+        if (!id) return null;
+        const text = typeof q?.question === "string"
+          ? q.question
+          : (typeof q?.text === "string" ? q.text : undefined);
+        const options = Array.isArray(q?.options)
+          ? q.options
+            .map((option: any) => {
+              const label = typeof option?.label === "string" ? option.label : "";
+              if (!label) return null;
+              return { label };
+            })
+            .filter((option: { label: string } | null): option is { label: string } => Boolean(option))
+          : undefined;
+        return { id, text, options };
+      })
+      .filter((question: { id: string; text?: string; options?: Array<{ label: string }> } | null): question is {
+        id: string;
+        text?: string;
+        options?: Array<{ label: string }>;
+      } => Boolean(question));
+
+    return { requestId, questions };
+  }
+
+  private buildDefaultUserInputResponse(request: UserInputRequest): UserInputResponse {
+    const answers: Record<string, { answers: string[] }> = {};
+    for (const question of request.questions) {
+      const firstOption = question.options && question.options.length > 0 ? question.options[0].label : "";
+      answers[question.id] = { answers: [firstOption] };
+    }
+    return { answers };
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return await new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
   }
 
   private handleNotification(message: any): void {
@@ -465,7 +741,50 @@ export class CodexAppServerClient {
       const turnId = params?.turnId;
       const delta = params?.delta;
       if (typeof turnId === "string" && typeof delta === "string" && delta.length > 0) {
+        const itemId = this.extractItemId(params?.item ?? params, turnId);
+        if (itemId) {
+          this.turnActiveToolItemId.set(turnId, itemId);
+        }
         this.emitToolDelta(turnId, delta);
+      }
+      return;
+    }
+
+    if (method.startsWith("item/") && method.endsWith("/delta")) {
+      const turnId = params?.turnId;
+      const delta = this.extractTextDelta(params);
+      if (typeof turnId === "string" && typeof delta === "string" && delta.length > 0 && this.isThinkingMethod(method)) {
+        this.emitThinkingDelta(turnId, delta);
+      }
+      return;
+    }
+
+    if (method === "item/started") {
+      const turnId = params?.turnId;
+      const item = params?.item;
+      const itemType = this.normalizeItemType(item?.type ?? params?.type);
+      const itemId = this.extractItemId(item, turnId);
+      if (typeof turnId === "string" && itemId) {
+        if (this.isThinkingType(itemType)) {
+          const initialThinking = this.extractTextDelta(item);
+          if (initialThinking) {
+            this.emitThinkingDelta(turnId, initialThinking);
+          }
+          return;
+        }
+
+        if (itemType !== "agentmessage") {
+          const info: ToolStartInfo = {
+            turnId,
+            itemId,
+            type: itemType || "tool",
+            name: this.extractToolName(item),
+            command: this.extractCommand(item),
+            filePath: this.extractFilePath(item),
+          };
+          this.turnActiveToolItemId.set(turnId, itemId);
+          this.emitToolStart(turnId, info);
+        }
       }
       return;
     }
@@ -473,9 +792,35 @@ export class CodexAppServerClient {
     if (method === "item/completed") {
       const turnId = params?.turnId;
       const item = params?.item;
-      if (typeof turnId === "string" && item?.type === "agentMessage" && typeof item?.text === "string") {
-        if (!this.turnHasMessageDelta.has(turnId) && item.text.length > 0) {
-          this.emitTurnDelta(turnId, item.text);
+      const itemType = this.normalizeItemType(item?.type ?? params?.type);
+      if (typeof turnId === "string") {
+        if (itemType === "agentmessage" && typeof item?.text === "string") {
+          if (!this.turnHasMessageDelta.has(turnId) && item.text.length > 0) {
+            this.emitTurnDelta(turnId, item.text);
+          }
+          return;
+        }
+
+        if (this.isThinkingType(itemType)) {
+          const completedThinking = this.extractTextDelta(item);
+          if (completedThinking && !this.turnHasThinkingDelta.has(turnId)) {
+            this.emitThinkingDelta(turnId, completedThinking);
+          }
+          return;
+        }
+
+        const itemId = this.extractItemId(item, turnId);
+        if (itemId) {
+          const info: ToolCompleteInfo = {
+            turnId,
+            itemId,
+            type: itemType || "tool",
+            status: this.extractItemStatus(item, params),
+          };
+          this.emitToolComplete(turnId, info);
+          if (this.turnActiveToolItemId.get(turnId) === itemId) {
+            this.turnActiveToolItemId.delete(turnId);
+          }
         }
       }
       return;
@@ -517,11 +862,15 @@ export class CodexAppServerClient {
           }
           pending.resolve(result);
           this.pendingTurns.delete(turnId);
-        } else {
+        } else if (status !== "cancelled") {
           this.preTurnResult.set(turnId, result);
+        } else {
+          this.clearTurnTransientState(turnId);
         }
-
-        this.turnHasMessageDelta.delete(turnId);
+        if (pending) {
+          this.clearTurnTransientState(turnId);
+        }
+        this.clearCurrentTurnId(turnId);
       }
       return;
     }
@@ -534,7 +883,7 @@ export class CodexAppServerClient {
       return;
     }
 
-    if (method === "item/started" || method === "turn/started") {
+    if (method === "turn/started") {
       return;
     }
   }
@@ -561,6 +910,137 @@ export class CodexAppServerClient {
     const list = this.preTurnToolDeltas.get(turnId) ?? [];
     list.push(delta);
     this.preTurnToolDeltas.set(turnId, list);
+  }
+
+  private emitThinkingDelta(turnId: string, delta: string): void {
+    this.turnHasThinkingDelta.add(turnId);
+    const pending = this.pendingTurns.get(turnId);
+    if (pending) {
+      pending.handlers.onThinkingDelta?.(delta);
+      return;
+    }
+
+    const list = this.preTurnThinkingDeltas.get(turnId) ?? [];
+    list.push(delta);
+    this.preTurnThinkingDeltas.set(turnId, list);
+  }
+
+  private emitToolStart(turnId: string, info: ToolStartInfo): void {
+    const pending = this.pendingTurns.get(turnId);
+    if (pending) {
+      pending.handlers.onToolStart?.(info);
+      return;
+    }
+
+    const list = this.preTurnToolStarts.get(turnId) ?? [];
+    list.push(info);
+    this.preTurnToolStarts.set(turnId, list);
+  }
+
+  private emitToolComplete(turnId: string, info: ToolCompleteInfo): void {
+    const pending = this.pendingTurns.get(turnId);
+    if (pending) {
+      pending.handlers.onToolComplete?.(info);
+      return;
+    }
+
+    const list = this.preTurnToolCompletes.get(turnId) ?? [];
+    list.push(info);
+    this.preTurnToolCompletes.set(turnId, list);
+  }
+
+  private clearTurnTransientState(turnId: string): void {
+    this.preTurnDeltas.delete(turnId);
+    this.preTurnToolDeltas.delete(turnId);
+    this.preTurnThinkingDeltas.delete(turnId);
+    this.preTurnToolStarts.delete(turnId);
+    this.preTurnToolCompletes.delete(turnId);
+    this.turnHasMessageDelta.delete(turnId);
+    this.turnHasThinkingDelta.delete(turnId);
+    this.turnActiveToolItemId.delete(turnId);
+  }
+
+  private normalizeItemType(value: unknown): string {
+    if (typeof value !== "string") return "";
+    return value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+  }
+
+  private isThinkingType(itemType: string): boolean {
+    return itemType.includes("thinking") || itemType.includes("reasoning");
+  }
+
+  private isThinkingMethod(method: string): boolean {
+    const normalized = method.toLowerCase();
+    return normalized.includes("thinking") || normalized.includes("reasoning");
+  }
+
+  private extractTextDelta(source: any): string | null {
+    if (!source || typeof source !== "object") return null;
+    const candidates = [
+      source.delta,
+      source.text,
+      source.content,
+      source.message,
+      source.output,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.length > 0) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private extractItemId(item: any, turnId: string | undefined): string {
+    const direct = item?.id ?? item?.itemId;
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct;
+    }
+    if (typeof turnId === "string") {
+      const active = this.turnActiveToolItemId.get(turnId);
+      if (active) {
+        return active;
+      }
+    }
+    const turnPrefix = typeof turnId === "string" && turnId.length > 0 ? turnId : "turn";
+    const sequence = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return `${turnPrefix}:${sequence}`;
+  }
+
+  private extractToolName(item: any): string | undefined {
+    const direct = item?.name ?? item?.toolName ?? item?.tool?.name ?? item?.command?.name;
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct.trim();
+    }
+    return undefined;
+  }
+
+  private extractCommand(item: any): string | undefined {
+    const direct = item?.command ?? item?.input?.command ?? item?.rawCommand ?? item?.toolInput?.command;
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct.trim();
+    }
+    return undefined;
+  }
+
+  private extractFilePath(item: any): string | undefined {
+    const direct = item?.filePath
+      ?? item?.path
+      ?? item?.targetPath
+      ?? item?.file?.path
+      ?? item?.input?.path;
+    if (typeof direct === "string" && direct.trim().length > 0) {
+      return direct.trim();
+    }
+    return undefined;
+  }
+
+  private extractItemStatus(item: any, params: any): string {
+    const status = item?.status ?? params?.status ?? params?.result?.status;
+    if (typeof status === "string" && status.trim().length > 0) {
+      return status.trim();
+    }
+    return "completed";
   }
 
   private async request(method: string, params: any): Promise<any> {
@@ -603,5 +1083,11 @@ export class CodexAppServerClient {
   private updateThreadId(threadId: string): void {
     this.currentThreadId = threadId;
     this.onThreadIdChanged(threadId);
+  }
+
+  private clearCurrentTurnId(turnId: string): void {
+    if (this.currentTurnId === turnId) {
+      this.currentTurnId = null;
+    }
   }
 }

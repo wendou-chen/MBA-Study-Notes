@@ -9,21 +9,27 @@
 # Plugin runtime/local data
 .obsidian/plugins/*/data.json
 .obsidian/plugins/copilot/
+.obsidian\workspace.json
 
 # Local agent/session state
 .ccb/
-.claude/sessions/
-.claude/claudian-settings.json
-.agent/settings.local.json
-.claude/settings.local.json
-.codex/settings.local.json
-.opencode/settings.local.json
+.agent/
+.claude/
+.codex/
+.opencode/
 .codexidian/
+CLAUDE.md
+.scripts/
 
 # Personal/private content
 copilot/copilot-conversations/
 考研数学/错题/
+考研数学/images
+考研数学/习题集/
+*.pdf
 抖音素材/
+考研计划/
+GitHub周刊/
 
 # Local security/runtime artifacts
 .env

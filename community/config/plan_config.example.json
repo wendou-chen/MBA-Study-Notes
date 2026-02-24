@@ -1,0 +1,60 @@
+{
+  "phases": [
+    {
+      "id": 1,
+      "name": "基础夯实",
+      "start": "2026-01-01",
+      "end": "2026-06-30",
+      "allocation": {
+        "math": 0.45,
+        "major": 0.25,
+        "english": 0.15,
+        "politics": 0.10,
+        "review": 0.05
+      }
+    },
+    {
+      "id": 2,
+      "name": "强化突破",
+      "start": "2026-07-01",
+      "end": "2026-10-31",
+      "allocation": {
+        "math": 0.35,
+        "major": 0.25,
+        "english": 0.15,
+        "politics": 0.20,
+        "review": 0.05
+      }
+    },
+    {
+      "id": 3,
+      "name": "冲刺模考",
+      "start": "2026-11-01",
+      "end": "2026-12-20",
+      "allocation": {
+        "math": 0.30,
+        "major": 0.25,
+        "english": 0.15,
+        "politics": 0.25,
+        "review": 0.05
+      }
+    }
+  ],
+  "subject_templates": {
+    "math": "高数/线代/概率题组训练（按错题优先）",
+    "major": "信号与系统核心章节复盘 + 例题推导",
+    "english": "阅读1篇 + 长难句10句 + 词汇复习",
+    "politics": "核心知识点背诵 + 选择题训练",
+    "review": "晚间复盘：完成率、错题、明日调整"
+  },
+  "weekday_names": [
+    "周一",
+    "周二",
+    "周三",
+    "周四",
+    "周五",
+    "周六",
+    "周日"
+  ]
+}
+

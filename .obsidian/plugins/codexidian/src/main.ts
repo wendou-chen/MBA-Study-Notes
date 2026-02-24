@@ -10,7 +10,16 @@ import {
 
 import { CodexAppServerClient } from "./CodexAppServerClient";
 import { CodexidianView, VIEW_TYPE_CODEXIDIAN } from "./CodexidianView";
-import { DEFAULT_SETTINGS, type CodexidianSettings } from "./types";
+import {
+  DEFAULT_SETTINGS,
+  type ApprovalDecision,
+  type ApprovalRequest,
+  AVAILABLE_MODELS,
+  type CodexidianSettings,
+  EFFORT_OPTIONS,
+  type UserInputRequest,
+  type UserInputResponse,
+} from "./types";
 
 export default class CodexidianPlugin extends Plugin {
   settings: CodexidianSettings = { ...DEFAULT_SETTINGS };
@@ -36,6 +45,8 @@ export default class CodexidianPlugin extends Plugin {
           view.updateStatus();
         }
       },
+      async (request) => await this.handleApprovalRequest(request),
+      async (request) => await this.handleUserInputRequest(request),
     );
 
     this.registerView(
@@ -99,6 +110,30 @@ export default class CodexidianPlugin extends Plugin {
       return view;
     }
     return null;
+  }
+
+  private async handleApprovalRequest(request: ApprovalRequest): Promise<ApprovalDecision> {
+    let view = this.getOpenView();
+    if (!view) {
+      await this.activateView();
+      view = this.getOpenView();
+    }
+    if (!view) {
+      throw new Error("Codexidian view is not available for approval.");
+    }
+    return await view.showApprovalCard(request);
+  }
+
+  private async handleUserInputRequest(request: UserInputRequest): Promise<UserInputResponse> {
+    let view = this.getOpenView();
+    if (!view) {
+      await this.activateView();
+      view = this.getOpenView();
+    }
+    if (!view) {
+      throw new Error("Codexidian view is not available for user input.");
+    }
+    return await view.showUserInputCard(request);
   }
 
   refreshStatus(): void {
@@ -173,17 +208,34 @@ class CodexidianSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Model override")
-      .setDesc("Optional model name. Leave empty to use Codex defaults.")
-      .addText((text) =>
-        text
-          .setPlaceholder("e.g. gpt-5.2-codex")
+      .setName("Model")
+      .setDesc("Select the AI model for Codex sessions.")
+      .addDropdown((dropdown) => {
+        for (const m of AVAILABLE_MODELS) {
+          dropdown.addOption(m.value, m.label);
+        }
+        dropdown
           .setValue(this.plugin.settings.model)
           .onChange(async (value) => {
-            this.plugin.settings.model = value.trim();
+            this.plugin.settings.model = value;
             await this.plugin.saveSettings();
-          }),
-      );
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Thinking effort")
+      .setDesc("Control how deeply Codex thinks before responding.")
+      .addDropdown((dropdown) => {
+        for (const e of EFFORT_OPTIONS) {
+          dropdown.addOption(e.value, e.label);
+        }
+        dropdown
+          .setValue(this.plugin.settings.thinkingEffort)
+          .onChange(async (value) => {
+            this.plugin.settings.thinkingEffort = value as any;
+            await this.plugin.saveSettings();
+          });
+      });
 
     new Setting(containerEl)
       .setName("Approval policy")
@@ -254,6 +306,42 @@ class CodexidianSettingTab extends PluginSettingTab {
           this.display();
           this.plugin.refreshStatus();
           new Notice("Codexidian saved thread cleared.");
+        }),
+      );
+
+    containerEl.createEl("h3", { text: "UI Settings" });
+
+    new Setting(containerEl)
+      .setName("Max tabs")
+      .setDesc("Maximum number of open tabs (1-5).")
+      .addSlider((slider) =>
+        slider
+          .setLimits(1, 5, 1)
+          .setValue(this.plugin.settings.maxTabs)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.maxTabs = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Context injection")
+      .setDesc("Inject current note path and editor selection into prompts.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.enableContextInjection).onChange(async (value) => {
+          this.plugin.settings.enableContextInjection = value;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Selection polling")
+      .setDesc("Poll editor selection to show context indicator.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.enableSelectionPolling).onChange(async (value) => {
+          this.plugin.settings.enableSelectionPolling = value;
+          await this.plugin.saveSettings();
         }),
       );
   }
