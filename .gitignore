@@ -17,6 +17,7 @@
 .agent/settings.local.json
 .claude/settings.local.json
 .codex/settings.local.json
+.opencode/settings.local.json
 .codexidian/
 
 # Personal/private content
