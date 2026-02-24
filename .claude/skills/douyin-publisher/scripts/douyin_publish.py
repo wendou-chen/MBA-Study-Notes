@@ -14,7 +14,7 @@ PENDING_DIR = MATERIALS_DIR / "待发布"
 PUBLISHED_DIR = MATERIALS_DIR / "已发布"
 PUBLISH_LOG = MATERIALS_DIR / "发布记录.md"
 PLAN_DIR = VAULT_ROOT / "考研计划"
-DEFAULT_BASE_URL = "https://api.anthropic.com"
+DEFAULT_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
 MODEL = "claude-sonnet-4-5-20250929"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}

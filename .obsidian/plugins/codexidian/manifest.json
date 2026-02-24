@@ -1,0 +1,9 @@
+{
+  "id": "codexidian",
+  "name": "Codexidian",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.5",
+  "description": "Embed Codex App Server as a native Obsidian chat view.",
+  "author": "Local",
+  "isDesktopOnly": true
+}

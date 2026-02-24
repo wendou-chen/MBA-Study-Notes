@@ -22,6 +22,10 @@
 # Security
 .env
 chrome-profile/
+.obsidian/plugins/obsidian-local-rest-api/data.json
+.obsidian/plugins/kaoyan-countdown/data.json
+.ccb/
+.claude/sessions/
 
 # Logs and System
 logs/

@@ -11,30 +11,17 @@
             "id": "7fbe89a9998dbba4",
             "type": "leaf",
             "state": {
-              "type": "pdf",
-              "state": {
-                "file": "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf"
-              },
-              "icon": "lucide-file-text",
-              "title": "【A4】26李林880题数一高数部分做题本"
-            }
-          },
-          {
-            "id": "cef4cb207a80221d",
-            "type": "leaf",
-            "state": {
               "type": "markdown",
               "state": {
-                "file": "抖音素材/待发布/2026-02-23/2026-02-23.md",
+                "file": "考研数学/解题板.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "2026-02-23"
+              "title": "解题板"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -203,7 +190,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 533.5,
+    "width": 615.5,
     "collapsed": true
   },
   "left-ribbon": {
@@ -222,42 +209,45 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "cef4cb207a80221d",
+  "active": "7fbe89a9998dbba4",
   "lastOpenFiles": [
-    "抖音素材/待发布/2026-02-23/images/077e382562478d03e727e618f9cfa768 1.png",
-    "抖音素材/待发布/2026-02-23/images/02a36857dd9306da8636ef4ce625677c.png",
-    "抖音素材/待发布/2026-02-23/images/Pasted image 20260224011206.png",
-    "抖音素材/待发布/2026-02-23/2026-02-23.md",
-    "抖音素材/待发布/2026-02-23/images/842e72289c91a16662f6a48628376e54.jpg",
-    "抖音素材/待发布/2026-02-23/images/Pasted image 20260224011155.png",
-    "logs/mcp-puppeteer-2026-02-24.log",
-    "抖音素材/待发布/2026-02-23/images/eabe8accd0df57cb917c5196d38a2247 1.png",
-    "抖音素材/待发布/2026-02-23/images/eabe8accd0df57cb917c5196d38a2247.png",
-    "考研计划/2026-02-23 周一.md",
-    "抖音素材/待发布/2026-02-23/images/077e382562478d03e727e618f9cfa768.png",
-    "抖音素材/待发布/2026-02-23/images",
-    "考研数学/固定解法速查表.md",
-    "抖音素材/待发布/2026-02-23",
+    "CUsersadmin.claudepluginsmarketplacesclaude-plugins-official",
+    "考研计划/2026-02-24 周二.md",
+    "考研数学/错题/微分方程/多元微分/images/Pasted image 20260224182521.png",
+    "考研数学/images/Pasted image 20260224182521.png",
+    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
     "考研数学/解题板.md",
-    "抖音素材/待发布/2026-02-22/2026-02-22.md",
-    "抖音素材/待发布/2026-02-22/images/316ef2f22164504a89c200a2957f7ff6.png",
-    "抖音素材/待发布/2026-02-22/images/8f96979014518b231bb6fc8b6b0943bf.png",
+    "考研数学/错题/微分方程/多元微分/images/Pasted image 20260224182253.png",
+    "考研数学/images/Pasted image 20260224182253.png",
+    "考研数学/错题/微分方程/多元微分/images/Pasted image 20260224165216.png",
+    "考研数学/错题/微分方程/多元微分/images",
+    "考研数学/错题/微分方程/多元微分",
+    "考研数学/images/Pasted image 20260224165216.png",
+    "考研数学/错题/微分方程/微分方程错题.md",
+    "考研数学/错题/微分方程/images/Pasted image 20260224154236.png",
+    "考研数学/images/Pasted image 20260224154236.png",
+    "考研数学/概念辨析与公式推导合集.md",
+    "考研数学/错题/微分方程/images/Pasted image 20260220235444.png",
+    "add_turbo.py",
+    "考研数学/固定解法速查表.md",
     "抖音素材/发布记录.md",
+    "抖音素材/待发布/2026-02-23/2026-02-23.md",
+    "抖音素材/待发布/2026-02-23/images/077e382562478d03e727e618f9cfa768 1.png",
+    "logs/mcp-puppeteer-2026-02-24.log",
+    "考研计划/2026-02-23 周一.md",
+    "抖音素材/待发布/2026-02-23/images",
+    "抖音素材/待发布/2026-02-23",
+    "抖音素材/待发布/2026-02-22/2026-02-22.md",
     "抖音素材/待发布/2026-02-22/images",
     "抖音素材/待发布/2026-02-22",
-    "考研数学/习题集/【A4】26李林880题数一高数部分做题本.pdf",
     "考研计划/2026-02-22 周日.md",
     "logs/mcp-puppeteer-2026-02-22.log",
     "考研计划/2026-02-15 周日.md",
     "考研计划/2026-02-21 周六.md",
     "考研英语/写作素材库.md",
-    "考研英语",
-    "logs/mcp-puppeteer-2026-02-20.log.gz",
-    "logs/mcp-puppeteer-2026-02-21.log",
     "抖音素材/待发布/2026-02-20/2026-02-20.md",
     "抖音素材/已发布/2026-02-20/2026-02-20.md",
     "考研数学/错题/一元函数积分/一元函数积分错题.md",
-    "考研数学/错题/微分方程/微分方程错题.md",
     "考研计划/2026-02-20 周五.md",
     "2026-02-19-fix-error-collector.md",
     "考研数学/错题/无穷级数/无穷级数错题.md",
@@ -267,8 +257,6 @@
     "抖音素材/待发布/2026-02-18/2026-02-18.md",
     "考研计划/2026-02-18 周三.md",
     "考研计划/2026-02-17 周二.md",
-    "考研计划/2026-02-16 周一.md",
-    "抖音素材/待发布/2026-02-17/2026-02-17.md",
     "Excalidraw/微分方程错题知识图谱.canvas",
     "微分方程错题知识图谱.canvas",
     "未命名.canvas"
