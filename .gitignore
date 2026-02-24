@@ -27,6 +27,11 @@ copilot/copilot-conversations/
 考研数学/images
 考研数学/习题集/
 *.pdf
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
 抖音素材/
 考研计划/
 GitHub周刊/
