@@ -1,4 +1,5 @@
 import type { StatusEntry, TurnStatus } from "../types";
+import { t } from "../i18n";
 
 type StatusEntryInput = Omit<StatusEntry, "timestamp">;
 
@@ -17,7 +18,7 @@ export class StatusPanel {
     this.containerEl = containerEl;
     this.containerEl.addClass("codexidian-status-panel");
     this.headerEl = this.containerEl.createDiv({ cls: "codexidian-status-header" });
-    this.currentEl = this.headerEl.createDiv({ cls: "codexidian-status-current", text: "Idle" });
+    this.currentEl = this.headerEl.createDiv({ cls: "codexidian-status-current", text: t("idle") });
     this.arrowEl = this.headerEl.createSpan({ cls: "status-arrow", text: "▾" });
     this.entriesEl = this.containerEl.createDiv({ cls: "codexidian-status-entries" });
 
@@ -114,6 +115,10 @@ export class StatusPanel {
     this.containerEl.empty();
   }
 
+  refreshLocale(): void {
+    this.render();
+  }
+
   private toggleCollapsed(): void {
     this.collapsed = !this.collapsed;
     this.render();
@@ -158,30 +163,30 @@ export class StatusPanel {
 
   private getCurrentStatusText(): string {
     if (this.turnStatus === "idle") {
-      return "Idle";
+      return t("idle");
     }
     if (this.turnStatus === "thinking") {
-      return "Thinking...";
+      return t("statusThinking");
     }
     if (this.turnStatus === "streaming") {
-      return "Streaming response...";
+      return t("statusStreaming");
     }
     if (this.turnStatus === "waiting_approval") {
-      return "Waiting for approval...";
+      return t("statusWaitingApproval");
     }
 
     const activeTool = this.entries.find((entry) => entry.type === "tool_call" && entry.status === "running");
     if (activeTool) {
-      return "Running tool...";
+      return t("statusRunningTool");
     }
-    return "Running...";
+    return t("statusRunningGeneric");
   }
 
   private entryTypeLabel(type: StatusEntry["type"]): string {
-    if (type === "tool_call") return "TOOL";
-    if (type === "thinking") return "THINK";
-    if (type === "subagent") return "AGENT";
-    return "INFO";
+    if (type === "tool_call") return t("statusTypeTool");
+    if (type === "thinking") return t("statusTypeThinking");
+    if (type === "subagent") return t("statusTypeAgent");
+    return t("statusTypeInfo");
   }
 
   private statusIcon(status: StatusEntry["status"]): string {

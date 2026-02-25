@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, MarkdownView, Menu, normalizePath, Notice, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 
 import type CodexidianPlugin from "./main";
 import type {
@@ -6,6 +6,11 @@ import type {
   ApprovalRequest,
   ChatMessage,
   ConversationMeta,
+  ConversationListFilter,
+  DiffEntry,
+  PlanStep,
+  PlanUpdate,
+  ReviewComment,
   SlashCommand,
   TabManagerState,
   ToolCompleteInfo,
@@ -13,7 +18,14 @@ import type {
   UserInputRequest,
   UserInputResponse,
 } from "./types";
-import { AVAILABLE_MODELS, EFFORT_OPTIONS, type ThinkingEffort } from "./types";
+import {
+  APPROVAL_MODES,
+  AVAILABLE_MODELS,
+  EFFORT_OPTIONS,
+  type ApprovalMode,
+  type SkillPreset,
+  type ThinkingEffort,
+} from "./types";
 import { VaultFileAdapter } from "./storage/VaultFileAdapter";
 import { SessionStorage } from "./storage/SessionStorage";
 import { MessageRenderer } from "./rendering/MessageRenderer";
@@ -25,6 +37,7 @@ import {
   ToolCallRenderer,
   type ToolCardHandle,
 } from "./rendering/ToolCallRenderer";
+import { PlanCardRenderer } from "./rendering/PlanCardRenderer";
 import { ConversationController } from "./controllers/ConversationController";
 import { SelectionController } from "./controllers/SelectionController";
 import { TabBar } from "./tabs/TabBar";
@@ -34,11 +47,21 @@ import { FileContext } from "./ui/FileContext";
 import { ImageContext } from "./ui/ImageContext";
 import { SlashCommandMenu } from "./ui/SlashCommandMenu";
 import { StatusPanel } from "./ui/StatusPanel";
+import { ReviewPane } from "./ui/ReviewPane";
+import { SessionModal } from "./ui/SessionModal";
+import { PathValidator } from "./security/PathValidator";
+import { t, tf } from "./i18n";
 
 export const VIEW_TYPE_CODEXIDIAN = "codexidian-view";
 
+interface ReviewTabState {
+  diffs: DiffEntry[];
+  comments: ReviewComment[];
+}
+
 export class CodexidianView extends ItemView {
   private rootEl!: HTMLElement;
+  private titleEl!: HTMLElement;
   private statusEl!: HTMLElement;
   private messagesContainer!: HTMLElement;
   private contextRowEl!: HTMLElement;
@@ -46,14 +69,19 @@ export class CodexidianView extends ItemView {
   private noteContextTextEl!: HTMLElement;
   private noteContextToggleEl!: HTMLButtonElement;
   private selectionContextEl!: HTMLElement;
+  private attachBtn: HTMLButtonElement | null = null;
+  private imageFileInputEl: HTMLInputElement | null = null;
+  private dropZoneEl: HTMLElement | null = null;
+  private dropZoneTextEl: HTMLElement | null = null;
   private inputEl!: HTMLTextAreaElement;
   private sendBtn!: HTMLButtonElement;
   private modelSelect!: HTMLSelectElement;
   private effortSelect!: HTMLSelectElement;
+  private skillMenuBtn!: HTMLButtonElement;
+  private modeMenuBtn!: HTMLButtonElement;
   private newThreadBtn!: HTMLButtonElement;
   private restartBtn!: HTMLButtonElement;
   private historyBtn!: HTMLButtonElement;
-  private historyMenuEl!: HTMLElement;
 
   private vaultAdapter!: VaultFileAdapter;
   private sessionStorage!: SessionStorage;
@@ -65,25 +93,31 @@ export class CodexidianView extends ItemView {
   private imageContext: ImageContext | null = null;
   private slashMenu: SlashCommandMenu | null = null;
   private statusPanel: StatusPanel | null = null;
+  private reviewPane: ReviewPane | null = null;
   private tabManager!: TabManager;
   private tabBar!: TabBar;
 
   private running = false;
-  private historyOpen = false;
-  private lastShortcutSendAt = 0;
   private messageQueue: string[] = [];
   private currentTurnId: string | null = null;
   private queueIndicatorEl: HTMLElement | null = null;
+  private modelLabelEl: HTMLElement | null = null;
+  private effortLabelEl: HTMLElement | null = null;
+  private skillLabelEl: HTMLElement | null = null;
+  private modeLabelEl: HTMLElement | null = null;
   private sendSequence = 0;
   private cancelledSendSequences = new Set<number>();
   private includeCurrentNoteContent = false;
+  private availableSkills: string[] = [];
+  private reviewStateByTabId = new Map<string, ReviewTabState>();
+  private planStateByTabId = new Map<string, PlanUpdate | null>();
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: CodexidianPlugin) {
     super(leaf);
   }
 
   getViewType(): string { return VIEW_TYPE_CODEXIDIAN; }
-  getDisplayText(): string { return "Codexidian"; }
+  getDisplayText(): string { return t("appTitle"); }
   getIcon(): string { return "bot"; }
 
   async onOpen(): Promise<void> {
@@ -98,11 +132,13 @@ export class CodexidianView extends ItemView {
       await this.sessionStorage.init();
     } catch (error) {
       storageInitError = error instanceof Error ? error.message : String(error);
-      new Notice(`Codexidian: storage initialization failed (${storageInitError}). Continuing without persistence.`);
+      new Notice(tf("noticeStorageInitFailed", { error: storageInitError }));
     }
 
     // Init renderer
-    this.messageRenderer = new MessageRenderer(this.app, this);
+    this.messageRenderer = new MessageRenderer(this.app, this, async (request) => {
+      await this.applyCodeToNote(request.code, request.language, request.triggerEl);
+    });
     this.thinkingRenderer = new ThinkingBlockRenderer();
     this.toolCallRenderer = new ToolCallRenderer();
 
@@ -112,22 +148,21 @@ export class CodexidianView extends ItemView {
     // Header
     const headerEl = this.rootEl.createDiv({ cls: "codexidian-header" });
     const headerLeft = headerEl.createDiv({ cls: "codexidian-header-left" });
-    headerLeft.createDiv({ cls: "codexidian-title", text: "Codexidian" });
-    this.statusEl = headerLeft.createDiv({ cls: "codexidian-status", text: "Disconnected" });
+    this.titleEl = headerLeft.createDiv({ cls: "codexidian-title", text: t("appTitle") });
+    this.statusEl = headerLeft.createDiv({ cls: "codexidian-status", text: t("disconnected") });
 
     // Tab bar container
     const tabBarContainer = headerEl.createDiv({ cls: "codexidian-tab-bar-container" });
 
     // Header right buttons
     const headerRight = headerEl.createDiv({ cls: "codexidian-header-right" });
-    headerRight.style.position = "relative";
-    this.historyBtn = headerRight.createEl("button", { text: "History" });
-    this.newThreadBtn = headerRight.createEl("button", { text: "New Thread" });
-    this.restartBtn = headerRight.createEl("button", { text: "Restart" });
-
-    // History menu (hidden by default)
-    this.historyMenuEl = headerRight.createDiv({ cls: "codexidian-history-menu" });
-    this.historyMenuEl.style.display = "none";
+    this.historyBtn = headerRight.createEl("button", { cls: "codexidian-header-icon-btn" });
+    this.newThreadBtn = headerRight.createEl("button", { cls: "codexidian-header-icon-btn" });
+    this.restartBtn = headerRight.createEl("button", { cls: "codexidian-header-icon-btn" });
+    this.historyBtn.type = "button";
+    this.newThreadBtn.type = "button";
+    this.restartBtn.type = "button";
+    this.updateHeaderButtons();
 
     // Messages container (holds tab panels)
     this.messagesContainer = this.rootEl.createDiv({ cls: "codexidian-messages-container" });
@@ -148,22 +183,35 @@ export class CodexidianView extends ItemView {
 
     const statusPanelEl = this.rootEl.createDiv({ cls: "codexidian-status-panel" });
     this.statusPanel = new StatusPanel(statusPanelEl);
+    if (this.plugin.settings.enableReviewPane) {
+      const reviewPaneEl = this.rootEl.createDiv({ cls: "codexidian-review-pane-host" });
+      this.reviewPane = new ReviewPane(reviewPaneEl, {
+        onCommentsChanged: (comments) => this.handleReviewCommentsChanged(comments),
+      });
+    }
 
     // Footer
     const footerEl = this.rootEl.createDiv({ cls: "codexidian-footer" });
     const fileChipContainerEl = footerEl.createDiv({ cls: "codexidian-file-chips-container" });
     const imagePreviewContainerEl = footerEl.createDiv({ cls: "codexidian-image-previews-container" });
-    const inputWrapEl = footerEl.createDiv({ cls: "codexidian-input-wrap" });
+    const inputWrapEl = footerEl.createDiv({ cls: "codexidian-input-wrapper" });
     this.inputEl = inputWrapEl.createEl("textarea", { cls: "codexidian-input" });
-    this.inputEl.placeholder = "Ask Codex about this vault...";
+    this.inputEl.placeholder = t("askPlaceholder");
     this.slashMenu = new SlashCommandMenu(inputWrapEl);
     this.registerBuiltinSlashCommands();
+
+    this.imageFileInputEl = footerEl.createEl("input", {
+      cls: "codexidian-attach-file-input",
+      attr: { type: "file" },
+    });
+    this.imageFileInputEl.accept = "image/*";
+    this.imageFileInputEl.multiple = true;
 
     // Model + Effort toolbar
     const toolbarEl = footerEl.createDiv({ cls: "codexidian-toolbar" });
 
     const modelGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
-    modelGroup.createSpan({ cls: "codexidian-toolbar-label", text: "Model" });
+    this.modelLabelEl = modelGroup.createSpan({ cls: "codexidian-toolbar-label", text: t("model") });
     this.modelSelect = modelGroup.createEl("select", { cls: "codexidian-toolbar-select" });
     for (const m of AVAILABLE_MODELS) {
       const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
@@ -175,7 +223,7 @@ export class CodexidianView extends ItemView {
     });
 
     const effortGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
-    effortGroup.createSpan({ cls: "codexidian-toolbar-label", text: "Effort" });
+    this.effortLabelEl = effortGroup.createSpan({ cls: "codexidian-toolbar-label", text: t("effort") });
     this.effortSelect = effortGroup.createEl("select", { cls: "codexidian-toolbar-select" });
     for (const e of EFFORT_OPTIONS) {
       const opt = this.effortSelect.createEl("option", { text: e.label, value: e.value });
@@ -186,17 +234,55 @@ export class CodexidianView extends ItemView {
       void this.plugin.saveSettings();
     });
 
-    const actionsEl = footerEl.createDiv({ cls: "codexidian-actions" });
-    actionsEl.createDiv({ cls: "codexidian-hint", text: "Ctrl/Cmd+Enter to send" });
-    this.sendBtn = actionsEl.createEl("button", { text: "Send" });
+    const skillGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
+    this.skillLabelEl = skillGroup.createSpan({ cls: "codexidian-toolbar-label", text: t("skill") });
+    this.skillMenuBtn = skillGroup.createEl("button", {
+      cls: "codexidian-toolbar-select codexidian-toolbar-menu-btn",
+      text: this.getSkillPresetLabel(this.plugin.settings.skillPreset),
+    });
+    this.skillMenuBtn.type = "button";
+    this.skillMenuBtn.addEventListener("click", (event) => {
+      void this.openSkillMenu(event);
+    });
+
+    const attachGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group codexidian-toolbar-attach-group" });
+    this.attachBtn = attachGroup.createEl("button", {
+      cls: "codexidian-attach-btn",
+      text: "📁",
+    });
+    this.attachBtn.type = "button";
+    this.attachBtn.setAttr("aria-label", t("attachImage"));
+    this.attachBtn.setAttr("title", t("attachImage"));
+
+    const modeGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
+    this.modeLabelEl = modeGroup.createSpan({ cls: "codexidian-toolbar-label", text: t("mode") });
+    this.modeMenuBtn = modeGroup.createEl("button", {
+      cls: "codexidian-toolbar-select codexidian-toolbar-menu-btn",
+      text: this.getApprovalModeLabel(this.plugin.settings.approvalMode),
+    });
+    this.modeMenuBtn.type = "button";
+    this.modeMenuBtn.addEventListener("click", (event) => {
+      this.openApprovalModeMenu(event);
+    });
+
+    toolbarEl.createDiv({ cls: "codexidian-toolbar-spacer" });
+    this.sendBtn = toolbarEl.createEl("button", { cls: "codexidian-send-btn" });
+    this.sendBtn.type = "button";
+    this.updateSendButton();
+
     this.queueIndicatorEl = footerEl.createDiv({ cls: "codexidian-queue-indicator" });
     this.updateQueueIndicator();
+    this.dropZoneEl = this.rootEl.createDiv({ cls: "codexidian-drop-zone" });
+    this.dropZoneTextEl = this.dropZoneEl.createDiv({
+      cls: "codexidian-drop-zone-text",
+      text: t("dropImagesHere"),
+    });
 
     // Init TabBar
     this.tabBar = new TabBar(tabBarContainer, {
       maxTabs: this.plugin.settings.maxTabs,
       onSelect: (tabId) => this.tabManager.switchTo(tabId),
-      onClose: (tabId) => this.tabManager.closeTab(tabId),
+      onClose: (tabId) => this.closeTabWithReviewState(tabId),
       onAdd: () => this.createNewTab(),
     });
 
@@ -219,14 +305,20 @@ export class CodexidianView extends ItemView {
       this.fileContext = new FileContext(this.app, fileChipContainerEl, this.inputEl);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Codexidian: failed to initialize file mention context (${message})`);
+      new Notice(tf("noticeFileContextInitFailed", { error: message }));
       this.fileContext = null;
     }
     try {
-      this.imageContext = new ImageContext(imagePreviewContainerEl, this.inputEl);
+      this.imageContext = new ImageContext(imagePreviewContainerEl, this.inputEl, {
+        dropTargetEl: this.rootEl,
+        onDropZoneActiveChange: (active) => this.setDropZoneActive(active),
+        onLimitReached: (max) => new Notice(tf("noticeAttachmentLimitReached", { max })),
+        onFilesIgnored: () => new Notice(t("noticeImageOnlyAttachments")),
+        onReadFailure: () => new Notice(t("noticeImageReadFailed")),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Codexidian: failed to initialize image paste context (${message})`);
+      new Notice(tf("noticeImageContextInitFailed", { error: message }));
       this.imageContext = null;
     }
 
@@ -238,17 +330,42 @@ export class CodexidianView extends ItemView {
     }));
     this.refreshCurrentNoteContext();
 
-    await this.restoreTabsWithFallback();
+    try {
+      await this.restoreTabsWithFallback();
+      this.ensureReviewStateForAllTabs();
+      this.ensurePlanStateForAllTabs();
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab) {
+        await this.ensureConversationReady(activeTab);
+        this.applyReviewStateToPane(activeTab.state.tabId);
+        this.renderPlanCardForTab(activeTab.state.tabId);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(tf("noticeRestoreTabsFailed", { error: message }));
+      if (!this.tabManager.getActiveTab()) {
+        await this.createNewTab();
+      }
+    }
 
     if (storageInitError) {
       const tab = this.tabManager.getActiveTab();
       if (tab) {
         this.appendSystemMessageToPanel(
           tab.panelEl,
-          `Storage unavailable. Session will run without persistence. (${storageInitError})`,
+          tf("noticeStorageInitFailed", { error: storageInitError }),
         );
       }
     }
+
+    try {
+      await this.refreshAvailableSkills();
+    } catch (error) {
+      this.debugError("onOpen:refreshAvailableSkills", error);
+    }
+    this.updateSkillButtonText();
+    this.updateModeButtonText();
+    this.autoResizeInput();
 
     this.bindEvents();
     this.updateStatus();
@@ -263,7 +380,7 @@ export class CodexidianView extends ItemView {
       await this.plugin.saveSettings();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Codexidian: failed to persist tab state (${message})`);
+      new Notice(tf("noticePersistTabStateFailed", { error: message }));
     }
 
     this.selectionController?.stop();
@@ -277,17 +394,55 @@ export class CodexidianView extends ItemView {
     this.messageRenderer?.destroy();
     this.statusPanel?.destroy();
     this.statusPanel = null;
+    this.reviewPane?.destroy();
+    this.reviewPane = null;
+    this.reviewStateByTabId.clear();
+    this.planStateByTabId.clear();
     this.tabManager?.destroy();
+    this.setDropZoneActive(false);
+    this.dropZoneTextEl = null;
+    this.dropZoneEl = null;
+    this.attachBtn = null;
+    this.imageFileInputEl = null;
   }
 
   private bindEvents(): void {
-    this.sendBtn.addEventListener("click", () => void this.sendCurrentInput());
+    this.sendBtn.addEventListener("click", () => {
+      void this.sendCurrentInput().catch((error) => this.handleUnhandledSendError(error));
+    });
+    this.attachBtn?.addEventListener("click", () => {
+      this.imageFileInputEl?.click();
+    });
+    this.imageFileInputEl?.addEventListener("change", () => {
+      const files = this.imageFileInputEl?.files;
+      if (!files || files.length === 0) {
+        return;
+      }
+      void this.handleImageFileSelection(files);
+      if (this.imageFileInputEl) {
+        this.imageFileInputEl.value = "";
+      }
+    });
     this.inputEl.addEventListener("input", () => {
+      this.autoResizeInput();
       this.handleSlashInputChanged();
     });
 
-    // Capture phase improves reliability when Obsidian/global handlers also listen for keydown.
-    this.inputEl.addEventListener("keydown", (e) => {
+    this.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter") {
+        this.debugLog("Enter pressed", {
+          key: e.key,
+          code: e.code,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          shiftKey: e.shiftKey,
+          isComposing: e.isComposing,
+          slashMenuVisible: this.slashMenu?.isVisible() || false,
+          running: this.running,
+          inputDisabled: this.inputEl.disabled,
+        });
+      }
+
       if (this.slashMenu?.isVisible()) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -321,65 +476,42 @@ export class CodexidianView extends ItemView {
         void this.cancelCurrentStream();
         return;
       }
-      if (!this.isSubmitShortcut(e)) return;
-      this.handleSubmitShortcut(e);
-    }, true);
 
-    // Scope-level fallback for cases where host keymap handling swallows textarea key events.
-    try {
-      this.scope?.register(["Mod"], "Enter", (e: KeyboardEvent) => {
-        if (document.activeElement !== this.inputEl) {
-          return true;
+      const isEnter = e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
+      if (isEnter && !e.shiftKey && !e.isComposing) {
+        if (e.ctrlKey || e.metaKey) {
+          console.log("[CODEXIDIAN DEBUG] Ctrl+Enter captured in input keydown");
         }
-        this.handleSubmitShortcut(e);
-        return false;
-      });
-      this.scope?.register([], "Escape", () => {
-        if (document.activeElement !== this.inputEl) {
-          return true;
-        }
-        if (this.slashMenu?.isVisible()) {
-          this.slashMenu.hide();
-          return false;
-        }
-        if (!this.running) {
-          return true;
-        }
-        void this.cancelCurrentStream();
-        return false;
-      });
-    } catch {
-      // Keep DOM listener path working even if scope registration fails.
-    }
+        e.preventDefault();
+        e.stopPropagation();
+        void this.sendCurrentInput().catch((error) => this.handleUnhandledSendError(error));
+      }
+    });
 
     this.newThreadBtn.addEventListener("click", () => void this.startNewThread());
     this.restartBtn.addEventListener("click", () => void this.restartEngine());
-    this.historyBtn.addEventListener("click", () => this.toggleHistory());
+    this.historyBtn.addEventListener("click", () => this.openSessionModal());
   }
 
-  private isSubmitShortcut(e: KeyboardEvent): boolean {
-    const isMod = e.ctrlKey || e.metaKey;
-    const isEnter = e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
-    return isMod && isEnter;
+  private async handleImageFileSelection(files: FileList): Promise<void> {
+    try {
+      await this.imageContext?.addFiles(files);
+      this.inputEl.focus();
+    } catch (error) {
+      this.debugError("handleImageFileSelection", error);
+      new Notice(t("noticeImageReadFailed"));
+    }
   }
 
-  private handleSubmitShortcut(e: KeyboardEvent): void {
-    if (e.defaultPrevented) return;
-    if (this.inputEl.disabled) return;
-    if (this.slashMenu?.isVisible()) {
-      e.preventDefault();
-      e.stopPropagation();
-      void this.executeSelectedSlashCommand();
+  private setDropZoneActive(active: boolean): void {
+    if (!this.dropZoneEl) {
       return;
     }
-    // Guard against duplicate dispatch when both DOM listener and Scope callback fire.
-    const now = Date.now();
-    if (now - this.lastShortcutSendAt < 80) return;
-    this.lastShortcutSendAt = now;
-
-    e.preventDefault();
-    e.stopPropagation();
-    void this.sendCurrentInput();
+    if (active) {
+      this.dropZoneEl.addClass("is-active");
+    } else {
+      this.dropZoneEl.removeClass("is-active");
+    }
   }
 
   private registerBuiltinSlashCommands(): void {
@@ -389,7 +521,7 @@ export class CodexidianView extends ItemView {
       this.slashMenu?.registerCommand({
         ...command,
         execute: async () => {
-          this.inputEl.value = "";
+          this.setInputValue("");
           this.slashMenu?.hide();
           await command.execute();
           this.inputEl.focus();
@@ -399,13 +531,13 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "new",
-      label: "New Chat",
-      description: "Start a new conversation tab.",
+      label: t("cmdNewLabel"),
+      description: t("cmdNewDesc"),
       icon: "➕",
       execute: async () => {
         const tabCount = this.tabManager.getAllTabStates().length;
         if (tabCount >= this.plugin.settings.maxTabs) {
-          new Notice(`Cannot create new tab: max tabs (${this.plugin.settings.maxTabs}) reached.`);
+          new Notice(tf("noticeCannotCreateTabMax", { max: this.plugin.settings.maxTabs }));
           return;
         }
         await this.createNewTab();
@@ -414,8 +546,8 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "clear",
-      label: "Clear Chat",
-      description: "Clear messages in the current conversation.",
+      label: t("cmdClearLabel"),
+      description: t("cmdClearDesc"),
       icon: "🧹",
       execute: async () => {
         await this.clearCurrentConversationMessages();
@@ -424,8 +556,8 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "model",
-      label: "Cycle Model",
-      description: "Switch to the next configured model.",
+      label: t("cmdModelLabel"),
+      description: t("cmdModelDesc"),
       icon: "🤖",
       execute: async () => {
         await this.cycleModelSetting();
@@ -434,8 +566,8 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "effort",
-      label: "Cycle Effort",
-      description: "Cycle thinking effort (low → medium → high → xhigh).",
+      label: t("cmdEffortLabel"),
+      description: t("cmdEffortDesc"),
       icon: "🧠",
       execute: async () => {
         await this.cycleEffortSetting();
@@ -444,18 +576,18 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "history",
-      label: "Toggle History",
-      description: "Open or close the conversation history menu.",
+      label: t("cmdHistoryLabel"),
+      description: t("cmdHistoryDesc"),
       icon: "🕘",
       execute: () => {
-        this.toggleHistory();
+        this.openSessionModal();
       },
     });
 
     register({
       name: "tabs",
-      label: "Show Tabs",
-      description: "Show a summary of current tabs.",
+      label: t("cmdTabsLabel"),
+      description: t("cmdTabsDesc"),
       icon: "🗂",
       execute: () => {
         this.showTabsSummary();
@@ -464,8 +596,8 @@ export class CodexidianView extends ItemView {
 
     register({
       name: "help",
-      label: "Show Help",
-      description: "List all available slash commands.",
+      label: t("cmdHelpLabel"),
+      description: t("cmdHelpDesc"),
       icon: "❓",
       execute: () => {
         this.showSlashCommandHelp();
@@ -487,14 +619,14 @@ export class CodexidianView extends ItemView {
   private async executeSelectedSlashCommand(): Promise<void> {
     const executed = await this.slashMenu?.executeSelected();
     if (!executed) return;
-    this.inputEl.value = "";
+    this.setInputValue("");
     this.inputEl.focus();
   }
 
   private async executeSlashCommandByName(name: string): Promise<boolean> {
     const executed = await this.slashMenu?.executeByName(name);
     if (!executed) return false;
-    this.inputEl.value = "";
+    this.setInputValue("");
     this.slashMenu?.hide();
     this.inputEl.focus();
     return true;
@@ -520,14 +652,22 @@ export class CodexidianView extends ItemView {
   private async clearCurrentConversationMessages(): Promise<void> {
     const tab = this.tabManager.getActiveTab();
     if (!tab) {
-      new Notice("No active tab to clear.");
+      new Notice(t("noticeNoActiveTabToClear"));
+      return;
+    }
+
+    const ready = await this.ensureConversationReady(tab);
+    if (!ready) {
       return;
     }
 
     tab.panelEl.empty();
     tab.conversationController.setMessages([]);
     this.statusPanel?.clear();
-    new Notice("Cleared current conversation messages.");
+    this.setReviewStateForTab(tab.state.tabId, []);
+    this.setPlanForTab(tab.state.tabId, null);
+    this.reviewPane?.clearComments();
+    new Notice(t("noticeClearedConversation"));
   }
 
   private async cycleModelSetting(): Promise<void> {
@@ -540,7 +680,7 @@ export class CodexidianView extends ItemView {
     this.modelSelect.value = nextModel.value;
     await this.plugin.saveSettings();
     this.updateStatus();
-    new Notice(`Model set to ${nextModel.label}`);
+    new Notice(tf("noticeModelSet", { model: nextModel.label }));
   }
 
   private async cycleEffortSetting(): Promise<void> {
@@ -554,13 +694,98 @@ export class CodexidianView extends ItemView {
     this.effortSelect.value = nextOption.value;
     await this.plugin.saveSettings();
     this.updateStatus();
-    new Notice(`Thinking effort set to ${nextOption.label}`);
+    new Notice(tf("noticeEffortSet", { effort: nextOption.label }));
+  }
+
+  private async refreshAvailableSkills(): Promise<void> {
+    try {
+      this.availableSkills = await this.plugin.refreshAvailableSkills();
+    } catch {
+      this.availableSkills = this.plugin.getAvailableSkills();
+    }
+  }
+
+  private getSkillPresetLabel(value: SkillPreset): string {
+    const normalized = value.trim();
+    if (!normalized || normalized === "none") {
+      return t("skillPresetNone");
+    }
+    return normalized;
+  }
+
+  private getApprovalModeLabel(value: ApprovalMode): string {
+    const found = APPROVAL_MODES.find((mode) => mode.value === value);
+    return found?.label ?? "Prompt";
+  }
+
+  private updateSkillButtonText(): void {
+    if (!this.skillMenuBtn) return;
+    const label = this.getSkillPresetLabel(this.plugin.settings.skillPreset);
+    this.skillMenuBtn.setText(label);
+    this.skillMenuBtn.setAttribute("aria-label", `${t("skill")}: ${label}`);
+  }
+
+  private updateModeButtonText(): void {
+    if (!this.modeMenuBtn) return;
+    const label = this.getApprovalModeLabel(this.plugin.settings.approvalMode);
+    this.modeMenuBtn.setText(label);
+    this.modeMenuBtn.setAttribute("aria-label", `${t("mode")}: ${label}`);
+  }
+
+  private async openSkillMenu(event: MouseEvent): Promise<void> {
+    await this.refreshAvailableSkills();
+    const menu = new Menu();
+    const options: string[] = ["none", ...this.availableSkills];
+    if (
+      this.plugin.settings.skillPreset !== "none"
+      && this.plugin.settings.skillPreset.trim().length > 0
+      && !options.includes(this.plugin.settings.skillPreset)
+    ) {
+      options.push(this.plugin.settings.skillPreset);
+    }
+
+    for (const preset of options) {
+      const label = this.getSkillPresetLabel(preset);
+      menu.addItem((item) => {
+        item.setTitle(label);
+        if (this.plugin.settings.skillPreset === preset) {
+          item.setChecked(true);
+        }
+        item.onClick(() => {
+          this.plugin.settings.skillPreset = preset;
+          this.updateSkillButtonText();
+          void this.plugin.saveSettings();
+          new Notice(tf("noticeSkillSet", { skill: label }));
+        });
+      });
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  private openApprovalModeMenu(event: MouseEvent): void {
+    const menu = new Menu();
+    for (const mode of APPROVAL_MODES) {
+      const label = `${mode.label} (${mode.description})`;
+      menu.addItem((item) => {
+        item.setTitle(label);
+        if (this.plugin.settings.approvalMode === mode.value) {
+          item.setChecked(true);
+        }
+        item.onClick(() => {
+          this.plugin.settings.approvalMode = mode.value;
+          this.updateModeButtonText();
+          void this.plugin.saveSettings();
+          new Notice(tf("noticeCollaborationModeSet", { mode: mode.label }));
+        });
+      });
+    }
+    menu.showAtMouseEvent(event);
   }
 
   private showTabsSummary(): void {
     const tabStates = this.tabManager.getAllTabStates();
     if (tabStates.length === 0) {
-      this.appendSystemMessage("No tabs are currently open.");
+      this.appendSystemMessage(t("messageNoTabsOpen"));
       return;
     }
 
@@ -572,20 +797,24 @@ export class CodexidianView extends ItemView {
       return `${activeFlag}${index + 1}[${shortTabId}] conv:${conv}`;
     }).join(" | ");
 
-    this.appendSystemMessage(`Tabs ${tabStates.length}/${this.plugin.settings.maxTabs}: ${summary}`);
+    this.appendSystemMessage(tf("messageTabsSummary", {
+      count: tabStates.length,
+      max: this.plugin.settings.maxTabs,
+      summary,
+    }));
   }
 
   private showSlashCommandHelp(): void {
     const commands = this.slashMenu?.getCommands() ?? [];
     if (commands.length === 0) {
-      this.appendSystemMessage("No slash commands are registered.");
+      this.appendSystemMessage(t("messageNoSlashCommands"));
       return;
     }
 
     const helpText = commands
       .map((command) => `/${command.name}: ${command.description}`)
       .join(" | ");
-    this.appendSystemMessage(`Available slash commands: ${helpText}`);
+    this.appendSystemMessage(tf("messageAvailableSlashCommands", { list: helpText }));
   }
 
   private updateQueueIndicator(): void {
@@ -596,7 +825,9 @@ export class CodexidianView extends ItemView {
       this.queueIndicatorEl.setText("");
       return;
     }
-    this.queueIndicatorEl.setText(`${queued} message${queued === 1 ? "" : "s"} queued`);
+    this.queueIndicatorEl.setText(queued === 1
+      ? tf("messageQueuedCount", { count: queued })
+      : tf("messageQueuedCountPlural", { count: queued }));
     this.queueIndicatorEl.addClass("visible");
   }
 
@@ -612,7 +843,7 @@ export class CodexidianView extends ItemView {
     const activeTab = this.tabManager?.getActiveTab();
     if (activeTab) {
       this.tabBar.setStreaming(activeTab.state.tabId, false);
-      this.appendSystemMessageToPanel(activeTab.panelEl, "(Cancelled by user)");
+      this.appendSystemMessageToPanel(activeTab.panelEl, t("messageCancelledByUser"));
     }
 
     this.running = false;
@@ -627,7 +858,7 @@ export class CodexidianView extends ItemView {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (activeTab) {
-        this.appendSystemMessageToPanel(activeTab.panelEl, `Cancel request failed: ${message}`);
+        this.appendSystemMessageToPanel(activeTab.panelEl, tf("messageCancelRequestFailed", { error: message }));
       }
     } finally {
       this.currentTurnId = null;
@@ -637,7 +868,7 @@ export class CodexidianView extends ItemView {
       await this.processQueue();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Codexidian: failed to process queue (${message})`);
+      new Notice(tf("noticeProcessQueueFailed", { error: message }));
     }
   }
 
@@ -652,53 +883,333 @@ export class CodexidianView extends ItemView {
       const message = error instanceof Error ? error.message : String(error);
       const activeTab = this.tabManager?.getActiveTab();
       if (activeTab) {
-        this.appendSystemMessageToPanel(activeTab.panelEl, `Queued message failed: ${message}`);
+        this.appendSystemMessageToPanel(activeTab.panelEl, tf("messageQueuedSendFailed", { error: message }));
       }
+    }
+  }
+
+  private closeTabWithReviewState(tabId: string): void {
+    this.tabManager.closeTab(tabId);
+    this.reviewStateByTabId.delete(tabId);
+    this.planStateByTabId.delete(tabId);
+    const activeTabId = this.tabManager.getActiveTab()?.state.tabId;
+    if (activeTabId) {
+      this.applyReviewStateToPane(activeTabId);
+      this.renderPlanCardForTab(activeTabId);
+    } else {
+      this.reviewPane?.clear();
+    }
+  }
+
+  private ensureReviewStateForAllTabs(): void {
+    for (const state of this.tabManager.getAllTabStates()) {
+      this.ensureReviewState(state.tabId);
+    }
+  }
+
+  private ensurePlanStateForAllTabs(): void {
+    for (const state of this.tabManager.getAllTabStates()) {
+      this.ensurePlanState(state.tabId);
+    }
+  }
+
+  private ensureReviewState(tabId: string): ReviewTabState {
+    const existing = this.reviewStateByTabId.get(tabId);
+    if (existing) {
+      return existing;
+    }
+    const created: ReviewTabState = { diffs: [], comments: [] };
+    this.reviewStateByTabId.set(tabId, created);
+    return created;
+  }
+
+  private ensurePlanState(tabId: string): PlanUpdate | null {
+    if (this.planStateByTabId.has(tabId)) {
+      return this.planStateByTabId.get(tabId) ?? null;
+    }
+    this.planStateByTabId.set(tabId, null);
+    return null;
+  }
+
+  private applyReviewStateToPane(tabId: string): void {
+    const state = this.ensureReviewState(tabId);
+    if (!this.reviewPane) {
+      return;
+    }
+    const comments = state.comments.map((comment) => ({ ...comment }));
+    this.reviewPane.setDiffs(state.diffs);
+    this.reviewPane.clearComments();
+    for (const comment of comments) {
+      this.reviewPane.addComment(comment);
+    }
+  }
+
+  private setReviewStateForTab(tabId: string, diffs: DiffEntry[]): void {
+    const state = this.ensureReviewState(tabId);
+    state.diffs = diffs.map((entry) => ({ ...entry }));
+    if (this.tabManager.getActiveTab()?.state.tabId === tabId) {
+      this.reviewPane?.setDiffs(state.diffs);
+    }
+  }
+
+  private handleReviewCommentsChanged(comments: ReviewComment[]): void {
+    const tab = this.tabManager.getActiveTab();
+    if (!tab) {
+      return;
+    }
+    const state = this.ensureReviewState(tab.state.tabId);
+    state.comments = comments.map((comment) => ({ ...comment }));
+  }
+
+  private consumeReviewCommentsForActiveTab(): ReviewComment[] {
+    const tab = this.tabManager.getActiveTab();
+    if (!tab) {
+      return [];
+    }
+    const state = this.ensureReviewState(tab.state.tabId);
+    const comments = state.comments.map((comment) => ({ ...comment }));
+    state.comments = [];
+    if (this.reviewPane && tab.state.tabId === this.tabManager.getActiveTab()?.state.tabId) {
+      this.reviewPane.clearComments();
+    }
+    return comments;
+  }
+
+  private setPlanForTab(tabId: string, plan: PlanUpdate | null): void {
+    this.planStateByTabId.set(tabId, plan ? this.clonePlan(plan) : null);
+    this.renderPlanCardForTab(tabId);
+  }
+
+  private getPlanForTab(tabId: string): PlanUpdate | null {
+    return this.planStateByTabId.get(tabId) ?? null;
+  }
+
+  private clonePlan(plan: PlanUpdate): PlanUpdate {
+    return {
+      ...plan,
+      steps: plan.steps.map((step) => ({ ...step })),
+    };
+  }
+
+  private getOrCreatePlanCardHost(panelEl: HTMLElement): HTMLElement {
+    const existing = panelEl.querySelector<HTMLElement>(".codexidian-plan-card-host");
+    if (existing) {
+      return existing;
+    }
+    return panelEl.createDiv({ cls: "codexidian-plan-card-host" });
+  }
+
+  private renderPlanCardForTab(tabId: string): void {
+    const tab = this.tabManager.getTab(tabId);
+    if (!tab) return;
+
+    const hostEl = this.getOrCreatePlanCardHost(tab.panelEl);
+    const plan = this.getPlanForTab(tabId);
+    if (!plan) {
+      hostEl.empty();
+      hostEl.remove();
+      return;
+    }
+
+    PlanCardRenderer.render(hostEl, plan, {
+      onApproveAll: async () => {
+        await this.handlePlanApproveAll(tabId);
+      },
+      onGiveFeedback: async () => {
+        await this.handlePlanFeedback(tabId);
+      },
+      onExecuteNext: async () => {
+        await this.handlePlanExecuteNext(tabId);
+      },
+    });
+  }
+
+  private updatePlanForTab(tabId: string, updater: (plan: PlanUpdate) => void): void {
+    const current = this.getPlanForTab(tabId);
+    if (!current) return;
+    const next = this.clonePlan(current);
+    updater(next);
+    this.setPlanForTab(tabId, next);
+  }
+
+  private async handlePlanApproveAll(tabId: string): Promise<void> {
+    this.updatePlanForTab(tabId, (plan) => {
+      plan.status = "approved";
+      for (const step of plan.steps) {
+        if (step.status === "pending") {
+          step.status = "approved";
+        }
+      }
+    });
+
+    try {
+      await this.sendCurrentInput(t("planApprovedProceedMessage"));
+    } catch (error) {
+      this.debugError("handlePlanApproveAll", error, { tabId });
+    }
+  }
+
+  private async handlePlanFeedback(tabId: string): Promise<void> {
+    const feedback = window.prompt(t("planFeedbackPrompt"), "");
+    if (feedback === null) return;
+    const trimmed = feedback.trim();
+    if (!trimmed) return;
+
+    const text = `${t("planFeedbackMessagePrefix")}:\n${trimmed}`;
+    try {
+      await this.sendCurrentInput(text);
+    } catch (error) {
+      this.debugError("handlePlanFeedback", error, { tabId });
+    }
+  }
+
+  private async handlePlanExecuteNext(tabId: string): Promise<void> {
+    const plan = this.getPlanForTab(tabId);
+    if (!plan) return;
+
+    const nextStep = plan.steps.find((step) => step.status === "approved" || step.status === "pending");
+    if (!nextStep) return;
+
+    this.updatePlanForTab(tabId, (draft) => {
+      const target = draft.steps.find((step) => step.id === nextStep.id);
+      if (!target) return;
+      target.status = "executing";
+      if (draft.status !== "completed") {
+        draft.status = "in_progress";
+      }
+    });
+
+    try {
+      await this.sendCurrentInput(tf("planExecuteStepMessage", {
+        index: nextStep.index,
+        description: nextStep.description,
+      }));
+
+      this.updatePlanForTab(tabId, (draft) => {
+        const target = draft.steps.find((step) => step.id === nextStep.id);
+        if (!target) return;
+        target.status = "completed";
+        const hasRemaining = draft.steps.some((step) => (
+          step.status === "approved" || step.status === "pending" || step.status === "executing"
+        ));
+        draft.status = hasRemaining ? "in_progress" : "completed";
+      });
+    } catch (error) {
+      this.debugError("handlePlanExecuteNext", error, { tabId, stepId: nextStep.id });
+      this.updatePlanForTab(tabId, (draft) => {
+        const target = draft.steps.find((step) => step.id === nextStep.id);
+        if (!target) return;
+        target.status = "failed";
+      });
     }
   }
 
   private async createNewTab(): Promise<void> {
     const tab = this.tabManager.addTab();
+    this.ensureReviewState(tab.state.tabId);
+    this.ensurePlanState(tab.state.tabId);
     try {
       const conv = await tab.conversationController.createNew();
       this.tabManager.setConversationId(tab.state.tabId, conv.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.appendSystemMessageToPanel(tab.panelEl, `Failed to initialize conversation: ${message}`);
+      this.appendSystemMessageToPanel(tab.panelEl, tf("messageFailedInitConversation", { error: message }));
     }
-    this.appendSystemMessageToPanel(tab.panelEl, "Ready. Click Send to start Codex in this pane.");
+    this.appendSystemMessageToPanel(tab.panelEl, t("messageReadyHint"));
   }
 
   private async restoreTabConversation(tab: Tab): Promise<void> {
-    if (!tab.state.conversationId) return;
-    const conv = await tab.conversationController.switchTo(tab.state.conversationId);
-    if (!conv) return;
+    if (!tab.state.conversationId) {
+      await this.ensureConversationReady(tab);
+      return;
+    }
 
-    await this.renderConversationMessages(tab.panelEl, conv.messages);
+    try {
+      const conv = await tab.conversationController.switchTo(tab.state.conversationId);
+      if (!conv) {
+        this.tabManager.setConversationId(tab.state.tabId, null);
+        await this.ensureConversationReady(tab);
+        return;
+      }
 
-    // Restore thread
-    if (conv.threadId) {
-      this.plugin.client.setThreadId(conv.threadId);
+      await this.renderConversationMessages(tab.panelEl, conv.messages);
+
+      // Restore thread
+      if (conv.threadId) {
+        this.plugin.client.setThreadId(conv.threadId);
+      }
+    } catch {
+      this.tabManager.setConversationId(tab.state.tabId, null);
+      await this.ensureConversationReady(tab);
     }
   }
 
   private onTabSwitched(tab: Tab): void {
+    this.ensureReviewState(tab.state.tabId);
+    this.applyReviewStateToPane(tab.state.tabId);
+    this.ensurePlanState(tab.state.tabId);
+    this.renderPlanCardForTab(tab.state.tabId);
     this.updateStatus();
     // Scroll to bottom of active panel
     tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
   }
 
+  private async ensureConversationReady(tab: Tab): Promise<boolean> {
+    const active = tab.conversationController.getActive();
+    if (active) {
+      if (!tab.state.conversationId || tab.state.conversationId !== active.id) {
+        this.tabManager.setConversationId(tab.state.tabId, active.id);
+      }
+      return true;
+    }
+
+    try {
+      const conv = await tab.conversationController.createNew();
+      this.tabManager.setConversationId(tab.state.tabId, conv.id);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.appendSystemMessageToPanel(tab.panelEl, tf("messageFailedInitConversation", { error: message }));
+      new Notice(tf("noticeCodexError", { error: message }));
+      return false;
+    }
+  }
+
+  private handleUnhandledSendError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.debugError("handleUnhandledSendError", error);
+    const tab = this.tabManager?.getActiveTab();
+    if (tab) {
+      this.appendSystemMessageToPanel(tab.panelEl, tf("messageRequestFailed", { error: message }));
+    }
+    new Notice(tf("noticeCodexError", { error: message }));
+    this.running = false;
+    this.currentTurnId = null;
+    this.statusPanel?.setTurnStatus("idle");
+    this.statusPanel?.clearFinishedAfterDelay(3000);
+    this.updateStatus();
+  }
+
   private async sendCurrentInput(promptOverride?: string): Promise<void> {
+    this.debugLog("sendCurrentInput:entry", {
+      hasOverride: promptOverride !== undefined,
+      running: this.running,
+      queueLength: this.messageQueue.length,
+    });
     const rawPrompt = promptOverride ?? this.inputEl.value;
     const prompt = rawPrompt.trim();
-    if (!prompt) return;
+    if (!prompt) {
+      this.debugLog("sendCurrentInput:skip-empty");
+      return;
+    }
 
     const slashCommandName = this.extractSlashCommandName(prompt);
     if (slashCommandName) {
       const executed = await this.executeSlashCommandByName(slashCommandName);
       if (executed) {
+        this.debugLog("sendCurrentInput:slash-executed", { slashCommandName });
         if (promptOverride === undefined) {
-          this.inputEl.value = "";
+          this.setInputValue("");
         }
         return;
       }
@@ -706,8 +1217,11 @@ export class CodexidianView extends ItemView {
 
     if (this.running) {
       this.messageQueue.push(prompt);
+      this.debugLog("sendCurrentInput:queued", {
+        queueLength: this.messageQueue.length,
+      });
       if (promptOverride === undefined) {
-        this.inputEl.value = "";
+        this.setInputValue("");
       }
       this.updateQueueIndicator();
       return;
@@ -717,38 +1231,141 @@ export class CodexidianView extends ItemView {
 
     let tab = this.tabManager.getActiveTab();
     if (!tab) {
+      this.debugLog("sendCurrentInput:no-active-tab, creating");
       await this.createNewTab();
       tab = this.tabManager.getActiveTab();
     }
-    if (!tab) return;
+    if (!tab) {
+      this.debugLog("sendCurrentInput:abort-no-tab");
+      return;
+    }
+
+    const conversationReady = await this.ensureConversationReady(tab);
+    if (!conversationReady) {
+      this.debugLog("sendCurrentInput:abort-conversation-not-ready");
+      return;
+    }
 
     const cc = tab.conversationController;
     if (promptOverride === undefined) {
-      this.inputEl.value = "";
+      this.setInputValue("");
     }
 
     // Build augmented prompt with context
-    const notePath = this.getCurrentMarkdownNotePath();
+    let notePath: string | null = null;
+    try {
+      notePath = this.getCurrentMarkdownNotePath();
+    } catch (error) {
+      this.debugError("sendCurrentInput:notePath-failed", error);
+    }
 
-    const editorCtx = this.plugin.settings.enableContextInjection
-      ? (this.selectionController?.getContext() ?? null)
-      : null;
-    const attachedFiles = await this.collectAttachedFileContents(notePath, tab.panelEl);
-    const imageAttachments = this.imageContext?.getImages() ?? [];
-    const imageLines = imageAttachments.map((image) => (
-      `(Image attached: ${image.name || "pasted-image"})`
-    ));
-    const promptWithImages = imageLines.length > 0
-      ? `${prompt}\n\n${imageLines.join("\n")}`
-      : prompt;
-    const augmented = buildAugmentedPrompt(promptWithImages, notePath, editorCtx, attachedFiles);
+    let editorCtx = null;
+    try {
+      editorCtx = this.plugin.settings.enableContextInjection
+        ? (this.selectionController?.getContext() ?? null)
+        : null;
+    } catch (error) {
+      this.debugError("sendCurrentInput:editorCtx-failed", error);
+      editorCtx = null;
+    }
 
-    // Show user message (original text only)
-    const userMessage = cc.addMessage("user", prompt);
-    this.appendMessageToPanel(tab.panelEl, "user", prompt, userMessage.id);
+    let attachedFiles: Array<{ path: string; content: string }> = [];
+    try {
+      attachedFiles = await this.collectAttachedFileContents(notePath, tab.panelEl);
+    } catch (error) {
+      this.debugError("sendCurrentInput:collectAttachedFileContents-failed", error);
+      attachedFiles = [];
+    }
 
-    // Create assistant message element for streaming
-    const assistantEl = this.createMessageEl(tab.panelEl, "assistant");
+    const existingPaths = new Set(attachedFiles.map((file) => file.path));
+    let mcpContextFiles: Array<{ path: string; content: string }> = [];
+    try {
+      mcpContextFiles = await this.plugin.collectMcpContextForPrompt(prompt, notePath, existingPaths);
+    } catch (error) {
+      this.debugError("sendCurrentInput:mcpContext-failed", error);
+      mcpContextFiles = [];
+    }
+
+    const allContextFiles = [...attachedFiles];
+    if (mcpContextFiles.length > 0) {
+      for (const file of mcpContextFiles) {
+        if (existingPaths.has(file.path)) continue;
+        existingPaths.add(file.path);
+        allContextFiles.push(file);
+      }
+      try {
+        this.appendSystemMessageToPanel(
+          tab.panelEl,
+          tf("messageMcpContextAttached", { paths: mcpContextFiles.map((file) => file.path).join(", ") }),
+        );
+      } catch (error) {
+        this.debugError("sendCurrentInput:mcpContext-notice-failed", error);
+      }
+    }
+
+    let imageAttachments: Array<{ name: string; dataUrl: string; path?: string }> = [];
+    try {
+      imageAttachments = this.imageContext?.getImages() ?? [];
+    } catch (error) {
+      this.debugError("sendCurrentInput:imageContext-failed", error);
+      imageAttachments = [];
+    }
+    const imageInputs = imageAttachments
+      .map((image) => ({
+        name: image.name,
+        dataUrl: typeof image.dataUrl === "string" ? image.dataUrl.trim() : "",
+        path: typeof image.path === "string" ? image.path.trim() : "",
+      }))
+      .filter((image) => image.dataUrl.length > 0 || image.path.length > 0);
+    const reviewComments = this.consumeReviewCommentsForActiveTab();
+    const promptWithTurnControls = this.buildPromptWithTurnControls(prompt);
+    const promptWithReviewComments = this.appendReviewCommentsToPrompt(promptWithTurnControls, reviewComments);
+    let augmented = promptWithReviewComments;
+    try {
+      augmented = buildAugmentedPrompt(promptWithReviewComments, notePath, editorCtx, allContextFiles);
+    } catch (error) {
+      this.debugError("sendCurrentInput:buildAugmentedPrompt-failed", error);
+      augmented = promptWithReviewComments;
+    }
+
+    this.debugLog("sendCurrentInput:prompt-ready", {
+      promptLength: prompt.length,
+      promptWithControlsLength: promptWithTurnControls.length,
+      promptWithReviewCommentsLength: promptWithReviewComments.length,
+      augmentedLength: augmented.length,
+      attachedFiles: attachedFiles.length,
+      mcpContextFiles: mcpContextFiles.length,
+      imageAttachments: imageAttachments.length,
+      reviewComments: reviewComments.length,
+      skillPreset: this.plugin.settings.skillPreset,
+      approvalMode: this.plugin.settings.approvalMode,
+      notePath,
+    });
+    if (imageInputs.length > 0) {
+      const firstImage = imageInputs[0];
+      this.debugLog("sendCurrentInput:image payload", {
+        count: imageInputs.length,
+        firstImageHasPath: firstImage.path.length > 0,
+        firstImagePath: firstImage.path.length > 0 ? firstImage.path : null,
+        firstImageUrlPrefix: firstImage.dataUrl.slice(0, 50),
+        firstImageUrlLength: firstImage.dataUrl.length,
+      });
+    }
+
+    // Show user message (original text + image thumbnails, when present)
+    let assistantEl: HTMLElement;
+    try {
+      const userImages = imageInputs.length > 0
+        ? imageInputs.map((image) => ({ name: image.name, dataUrl: image.dataUrl }))
+        : undefined;
+      const userMessage = cc.addMessage("user", prompt, { images: userImages });
+      this.appendMessageToPanel(tab.panelEl, "user", prompt, userMessage.id, userMessage.images);
+      // Create assistant message element for streaming
+      assistantEl = this.createMessageEl(tab.panelEl, "assistant");
+    } catch (error) {
+      this.debugError("sendCurrentInput:pre-send-render-failed", error);
+      throw error;
+    }
     let accumulated = "";
     const sendSeq = ++this.sendSequence;
     const toolCards = new Map<string, ToolCardHandle>();
@@ -758,12 +1375,22 @@ export class CodexidianView extends ItemView {
     let thinkingBlock: ThinkingBlockHandle | null = null;
     let thinkingFinalized = false;
     const toolStartTimes = new Map<string, number>();
+    const toolMetadataById = new Map<string, Partial<ToolStartInfo>>();
+    const toolOutputById = new Map<string, string>();
+    const turnDiffsByPath = new Map<string, DiffEntry>();
+    let detectedPlanFromTool: PlanUpdate | null = null;
     let thinkingEntryId: string | null = null;
     let thinkingStartedAt = 0;
 
     const createTimelineSlot = (): HTMLElement => {
       const slotEl = tab.panelEl.createDiv();
-      tab.panelEl.insertBefore(slotEl, assistantEl);
+      const assistantWrapperEl = assistantEl.closest(".codexidian-msg-wrapper");
+      const referenceEl = assistantWrapperEl instanceof HTMLElement
+        ? assistantWrapperEl
+        : assistantEl;
+      if (referenceEl.parentElement === tab.panelEl) {
+        tab.panelEl.insertBefore(slotEl, referenceEl);
+      }
       return slotEl;
     };
 
@@ -788,7 +1415,7 @@ export class CodexidianView extends ItemView {
       this.statusPanel?.addEntry({
         id: thinkingEntryId,
         type: "thinking",
-        label: "Reasoning",
+        label: t("reasoning"),
         status: "running",
       });
     };
@@ -816,10 +1443,21 @@ export class CodexidianView extends ItemView {
     this.tabBar.setStreaming(tab.state.tabId, true);
 
     try {
+      this.debugLog("sendCurrentInput:before-sendTurn", {
+        sendSeq,
+        tabId: tab.state.tabId,
+        model: this.modelSelect.value || "(default)",
+        effort: this.effortSelect.value || "(default)",
+        imageInputs: imageInputs.length,
+      });
       const turnPromise = this.plugin.client.sendTurn(
         augmented,
         {
           onDelta: (delta) => {
+            this.debugLog("sendCurrentInput:onDelta", {
+              sendSeq,
+              deltaLength: delta.length,
+            });
             if (!this.currentTurnId) {
               this.currentTurnId = this.plugin.client.getCurrentTurnId();
             }
@@ -837,6 +1475,10 @@ export class CodexidianView extends ItemView {
             tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
           },
           onThinkingDelta: (delta) => {
+            this.debugLog("sendCurrentInput:onThinkingDelta", {
+              sendSeq,
+              deltaLength: delta.length,
+            });
             if (!delta) return;
             this.statusPanel?.setTurnStatus("thinking");
             ensureThinkingEntry();
@@ -847,11 +1489,23 @@ export class CodexidianView extends ItemView {
             tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
           },
           onToolStart: (info: ToolStartInfo) => {
+            this.debugLog("sendCurrentInput:onToolStart", {
+              sendSeq,
+              itemId: info.itemId,
+              type: info.type,
+              name: info.name,
+            });
             const card = ensureToolCard(info.itemId, info);
             runningToolIds.add(info.itemId);
             activeToolItemId = info.itemId;
             card.complete("running");
             toolStartTimes.set(info.itemId, Date.now());
+            toolMetadataById.set(info.itemId, {
+              type: info.type,
+              name: info.name,
+              command: info.command,
+              filePath: info.filePath,
+            });
             this.statusPanel?.setTurnStatus("tool_calling");
             this.statusPanel?.addEntry({
               id: info.itemId,
@@ -863,6 +1517,10 @@ export class CodexidianView extends ItemView {
             tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
           },
           onToolDelta: (delta) => {
+            this.debugLog("sendCurrentInput:onToolDelta", {
+              sendSeq,
+              deltaLength: delta.length,
+            });
             if (!this.currentTurnId) {
               this.currentTurnId = this.plugin.client.getCurrentTurnId();
             }
@@ -875,38 +1533,70 @@ export class CodexidianView extends ItemView {
                 activeToolItemId = itemId;
                 runningToolIds.add(itemId);
               }
-              const card = ensureToolCard(itemId, { type: "tool", name: "Tool output" });
+              const card = ensureToolCard(itemId, { type: "tool", name: t("toolOutput") });
               card.appendOutput(delta);
+              const previous = toolOutputById.get(itemId) ?? "";
+              toolOutputById.set(itemId, `${previous}${delta}`);
             }
 
             if (delta.trim().length > 0) {
-              this.statusEl.setText(`Tool: ${delta.trim().slice(0, 80)}`);
+              this.statusEl.setText(`${t("toolStatusPrefix")}: ${delta.trim().slice(0, 80)}`);
             }
           },
           onToolComplete: (info: ToolCompleteInfo) => {
+            this.debugLog("sendCurrentInput:onToolComplete", {
+              sendSeq,
+              itemId: info.itemId,
+              status: info.status,
+            });
             const card = ensureToolCard(info.itemId, info);
-            card.complete(info.status);
             const startedAt = toolStartTimes.get(info.itemId);
+            const durationMs = startedAt ? Date.now() - startedAt : undefined;
+            card.complete(info.status, durationMs);
             this.statusPanel?.updateEntry(info.itemId, {
               status: this.resolveEntryStatus(info.status),
-              duration: startedAt ? Date.now() - startedAt : undefined,
+              duration: durationMs,
             });
             runningToolIds.delete(info.itemId);
             if (activeToolItemId === info.itemId) {
               const remaining = Array.from(runningToolIds);
               activeToolItemId = remaining.length > 0 ? remaining[remaining.length - 1] : null;
             }
+
+            const metadata = toolMetadataById.get(info.itemId);
+            const diffEntry = this.inferDiffEntryFromTool(info, metadata);
+            if (diffEntry) {
+              turnDiffsByPath.set(diffEntry.filePath.toLowerCase(), diffEntry);
+            }
+            if (!detectedPlanFromTool) {
+              detectedPlanFromTool = this.detectPlanFromToolOutput(
+                info,
+                toolOutputById.get(info.itemId) ?? "",
+              );
+            }
             tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
           },
           onSystem: (message) => {
+            this.debugLog("sendCurrentInput:onSystem", {
+              sendSeq,
+              message,
+            });
             this.appendSystemMessageToPanel(tab.panelEl, message);
           },
         },
         {
           model: this.modelSelect.value || undefined,
           effort: this.effortSelect.value || undefined,
+          images: imageInputs.length > 0 ? imageInputs : undefined,
         },
       );
+      if (imageInputs.length > 0) {
+        try {
+          this.imageContext?.clear();
+        } catch (error) {
+          this.debugError("sendCurrentInput:imageContext-clear-after-send", error);
+        }
+      }
       const captureTurnId = () => {
         if (this.currentTurnId || !this.running || sendSeq !== this.sendSequence) {
           return;
@@ -920,6 +1610,12 @@ export class CodexidianView extends ItemView {
       };
       captureTurnId();
       const result = await turnPromise;
+      this.debugLog("sendCurrentInput:onComplete", {
+        sendSeq,
+        turnId: result.turnId,
+        status: result.status,
+        hasErrorMessage: Boolean(result.errorMessage),
+      });
       this.currentTurnId = result.turnId;
       this.statusPanel?.setTurnStatus("streaming");
       const cancelledByUser = this.cancelledSendSequences.has(sendSeq);
@@ -927,9 +1623,9 @@ export class CodexidianView extends ItemView {
       // Final render
       if (accumulated.trim().length === 0) {
         if (cancelledByUser || result.status === "cancelled") {
-          accumulated = "(Cancelled)";
+          accumulated = t("messageCancelledByUser");
         } else {
-          accumulated = result.errorMessage || "(No assistant text output)";
+          accumulated = result.errorMessage || t("messageNoAssistantOutput");
         }
       }
       await this.messageRenderer.renderContent(assistantEl, accumulated);
@@ -945,24 +1641,54 @@ export class CodexidianView extends ItemView {
 
       if (result.status !== "completed" && !(cancelledByUser && result.status === "cancelled")) {
         const suffix = result.errorMessage ? `: ${result.errorMessage}` : "";
-        this.appendSystemMessageToPanel(tab.panelEl, `Turn finished with status ${result.status}${suffix}`);
+        this.appendSystemMessageToPanel(tab.panelEl, tf("messageTurnFinishedStatus", {
+          status: result.status,
+          suffix,
+        }));
+      }
+
+      if (result.status === "completed") {
+        this.setReviewStateForTab(tab.state.tabId, Array.from(turnDiffsByPath.values()));
+        const planCandidate = detectedPlanFromTool ?? this.detectPlanFromAssistantText(accumulated);
+        if (planCandidate) {
+          this.setPlanForTab(tab.state.tabId, planCandidate);
+        }
       }
     } catch (error) {
+      this.debugError("sendCurrentInput:onError", error, { sendSeq });
       const cancelledByUser = this.cancelledSendSequences.has(sendSeq);
       const message = error instanceof Error ? error.message : String(error);
 
+      if (this.isThreadNotFoundMessage(message)) {
+        this.debugLog("sendCurrentInput:thread-reset", {
+          reason: message,
+          tabId: tab.state.tabId,
+        });
+        cc.clearThreadId();
+        this.plugin.client.setThreadId(null);
+      }
+
       if (cancelledByUser) {
-        const finalText = accumulated.trim().length > 0 ? accumulated : "(Cancelled)";
+        const finalText = accumulated.trim().length > 0 ? accumulated : t("messageCancelledByUser");
         await this.messageRenderer.renderContent(assistantEl, finalText);
         cc.addMessage("assistant", finalText);
         finalizeThinking();
       } else {
-        await this.messageRenderer.renderContent(assistantEl, "(No assistant output)");
-        this.appendSystemMessageToPanel(tab.panelEl, `Request failed: ${message}`);
-        new Notice(`Codexidian: ${message}`);
+        await this.messageRenderer.renderContent(assistantEl, t("messageNoAssistantOutput"));
+        this.appendSystemMessageToPanel(tab.panelEl, tf("messageRequestFailed", { error: message }));
+        if (imageInputs.length > 0 && this.isImageInputUnsupportedMessage(message)) {
+          this.appendSystemMessageToPanel(tab.panelEl, t("messageImageUploadUnsupported"));
+          new Notice(t("noticeImageUploadUnsupported"));
+        }
+        new Notice(tf("noticeCodexError", { error: message }));
         finalizeThinking();
       }
     } finally {
+      this.debugLog("sendCurrentInput:finally", {
+        sendSeq,
+        running: this.running,
+        queueLength: this.messageQueue.length,
+      });
       finalizeThinking();
       this.cancelledSendSequences.delete(sendSeq);
       if (sendSeq !== this.sendSequence) {
@@ -977,7 +1703,6 @@ export class CodexidianView extends ItemView {
       this.updateStatus();
       try {
         this.fileContext?.clear();
-        this.imageContext?.clear();
       } catch {
         // Keep message flow intact if context cleanup fails.
       }
@@ -985,9 +1710,41 @@ export class CodexidianView extends ItemView {
         await this.processQueue();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        new Notice(`Codexidian: failed to process queue (${message})`);
+        new Notice(tf("noticeProcessQueueFailed", { error: message }));
       }
     }
+  }
+
+  private buildPromptWithTurnControls(prompt: string): string {
+    const directives: string[] = [];
+    const skill = this.plugin.settings.skillPreset.trim();
+    if (skill && skill !== "none") {
+      directives.push(`[Skill: ${skill}]`);
+    }
+    if (directives.length === 0) {
+      return prompt;
+    }
+    return `${directives.join("\n")}\n\n${prompt}`;
+  }
+
+  private appendReviewCommentsToPrompt(prompt: string, comments: ReviewComment[]): string {
+    if (comments.length === 0) {
+      return prompt;
+    }
+
+    const lines = comments
+      .map((comment) => {
+        const scope = comment.scope.trim() || "general";
+        const text = comment.text.trim();
+        return text ? `- ${scope}: ${text}` : "";
+      })
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      return prompt;
+    }
+
+    return `${prompt}\n\n[${t("reviewPromptHeader")}]\n${lines.join("\n")}`;
   }
 
   private async startNewThread(): Promise<void> {
@@ -999,13 +1756,13 @@ export class CodexidianView extends ItemView {
       const tab = this.tabManager.getActiveTab();
       if (tab) {
         tab.conversationController.setThreadId(threadId);
-        this.appendSystemMessageToPanel(tab.panelEl, `Started new thread: ${threadId}`);
+        this.appendSystemMessageToPanel(tab.panelEl, tf("messageStartedNewThread", { threadId }));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const tab = this.tabManager.getActiveTab();
-      if (tab) this.appendSystemMessageToPanel(tab.panelEl, `Failed to start new thread: ${message}`);
-      new Notice(`Codexidian: ${message}`);
+      if (tab) this.appendSystemMessageToPanel(tab.panelEl, tf("messageFailedStartNewThread", { error: message }));
+      new Notice(tf("noticeCodexError", { error: message }));
     } finally {
       this.running = false;
       this.updateStatus();
@@ -1019,99 +1776,168 @@ export class CodexidianView extends ItemView {
     try {
       await this.plugin.client.restart();
       const tab = this.tabManager.getActiveTab();
-      if (tab) this.appendSystemMessageToPanel(tab.panelEl, "Codex app-server restarted.");
+      if (tab) this.appendSystemMessageToPanel(tab.panelEl, t("messageRestarted"));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const tab = this.tabManager.getActiveTab();
-      if (tab) this.appendSystemMessageToPanel(tab.panelEl, `Restart failed: ${message}`);
-      new Notice(`Codexidian: ${message}`);
+      if (tab) this.appendSystemMessageToPanel(tab.panelEl, tf("messageRestartFailed", { error: message }));
+      new Notice(tf("noticeCodexError", { error: message }));
     } finally {
       this.running = false;
       this.updateStatus();
     }
   }
 
-  private toggleHistory(): void {
-    this.historyOpen = !this.historyOpen;
-    if (this.historyOpen) {
-      void this.renderHistoryMenu();
-      this.historyMenuEl.style.display = "block";
-    } else {
-      this.historyMenuEl.style.display = "none";
+  private openSessionModal(): void {
+    try {
+      const modal = new SessionModal(this.app, {
+        listConversations: async (filter) => await this.listConversations(filter),
+        searchConversations: async (query, filter) => await this.searchConversations(query, filter),
+        onOpen: async (meta) => await this.openConversation(meta.id),
+        onFork: async (meta) => await this.forkConversation(meta.id),
+        onTogglePin: async (meta, pinned) => {
+          await this.updateConversationMeta(meta.id, { pinned });
+        },
+        onToggleArchive: async (meta, archived) => {
+          await this.updateConversationMeta(meta.id, { archived });
+        },
+        onDelete: async (meta) => {
+          await this.deleteConversation(meta.id);
+        },
+      });
+      modal.open();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(tf("sessionActionFailed", { error: message }));
     }
   }
 
-  private async renderHistoryMenu(): Promise<void> {
-    this.historyMenuEl.empty();
-    const cc = this.tabManager.getActiveConversationController();
-    if (!cc) return;
-
-    const list = await cc.listConversations();
-    if (list.length === 0) {
-      this.historyMenuEl.createDiv({ cls: "codexidian-history-empty", text: "No conversations yet" });
-      return;
+  private getAnyConversationController(): ConversationController | null {
+    const active = this.tabManager.getActiveConversationController();
+    if (active) {
+      return active;
     }
-
-    for (const meta of list) {
-      this.renderHistoryItem(meta);
+    for (const state of this.tabManager.getAllTabStates()) {
+      const tab = this.tabManager.getTab(state.tabId);
+      if (tab) {
+        return tab.conversationController;
+      }
     }
+    return null;
   }
 
-  private renderHistoryItem(meta: ConversationMeta): void {
-    const item = this.historyMenuEl.createDiv({ cls: "codexidian-history-item" });
-    const titleEl = item.createSpan({ cls: "codexidian-history-title" });
-    titleEl.setText(meta.title);
-    titleEl.title = `${meta.messageCount} messages\n${meta.preview}`;
+  private async listConversations(filter: ConversationListFilter): Promise<ConversationMeta[]> {
+    const controller = this.getAnyConversationController();
+    if (controller) {
+      return await controller.listConversations(filter);
+    }
+    return await this.sessionStorage.listConversations(filter);
+  }
 
-    const actions = item.createDiv({ cls: "codexidian-history-actions" });
+  private async searchConversations(query: string, filter: ConversationListFilter): Promise<ConversationMeta[]> {
+    const controller = this.getAnyConversationController();
+    if (controller) {
+      return await controller.searchConversations(query, filter);
+    }
+    return await this.sessionStorage.searchConversations(query, filter);
+  }
 
-    const openBtn = actions.createEl("button", { cls: "codexidian-history-action-btn", text: "Open" });
-    openBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      void this.openConversation(meta.id);
-      this.toggleHistory();
-    });
-
-    const deleteBtn = actions.createEl("button", { cls: "codexidian-history-action-btn delete", text: "Del" });
-    deleteBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      void this.deleteConversation(meta.id);
-    });
-
-    item.addEventListener("click", () => {
-      void this.openConversation(meta.id);
-      this.toggleHistory();
-    });
+  private async updateConversationMeta(
+    id: string,
+    partial: Partial<Pick<ConversationMeta, "archived" | "pinned" | "tags">>,
+  ): Promise<ConversationMeta | null> {
+    const controller = this.getAnyConversationController();
+    if (controller) {
+      return await controller.updateMeta(id, partial);
+    }
+    return await this.sessionStorage.updateMeta(id, partial);
   }
 
   private async openConversation(id: string): Promise<void> {
-    const tab = this.tabManager.getActiveTab();
+    const tab = await this.ensureActiveTabForInlineCard();
     if (!tab) return;
 
     const conv = await tab.conversationController.switchTo(id);
     if (!conv) {
-      new Notice("Failed to load conversation");
+      new Notice(t("noticeFailedLoadConversation"));
       return;
     }
 
     this.tabManager.setConversationId(tab.state.tabId, id);
     tab.panelEl.empty();
+    this.setReviewStateForTab(tab.state.tabId, []);
+    this.setPlanForTab(tab.state.tabId, null);
 
     await this.renderConversationMessages(tab.panelEl, conv.messages);
 
-    if (conv.threadId) {
-      this.plugin.client.setThreadId(conv.threadId);
-    }
+    this.plugin.client.setThreadId(conv.threadId ?? null);
 
     this.updateStatus();
     tab.panelEl.scrollTop = tab.panelEl.scrollHeight;
   }
 
   private async deleteConversation(id: string): Promise<void> {
-    const cc = this.tabManager.getActiveConversationController();
-    if (!cc) return;
-    await cc.deleteConversation(id);
-    void this.renderHistoryMenu();
+    const controller = this.getAnyConversationController();
+    if (controller) {
+      await controller.deleteConversation(id);
+    } else {
+      await this.sessionStorage.deleteConversation(id);
+    }
+
+    const activeTab = this.tabManager.getActiveTab();
+    if (!activeTab) return;
+    if (activeTab.state.conversationId !== id) return;
+
+    activeTab.panelEl.empty();
+    this.tabManager.setConversationId(activeTab.state.tabId, null);
+    this.setReviewStateForTab(activeTab.state.tabId, []);
+    this.setPlanForTab(activeTab.state.tabId, null);
+    const ready = await this.ensureConversationReady(activeTab);
+    if (ready) {
+      this.appendSystemMessageToPanel(activeTab.panelEl, t("messageReadyHint"));
+    }
+  }
+
+  private async forkConversation(id: string): Promise<void> {
+    if (this.running) {
+      new Notice(t("noticeCannotForkRunning"));
+      return;
+    }
+
+    const currentTabCount = this.tabManager.getAllTabStates().length;
+    if (currentTabCount >= this.plugin.settings.maxTabs) {
+      new Notice(tf("noticeCannotForkMax", { max: this.plugin.settings.maxTabs }));
+      return;
+    }
+
+    const sourceConversation = await this.sessionStorage.loadConversation(id);
+    if (!sourceConversation) {
+      new Notice(t("noticeFailedLoadConversation"));
+      return;
+    }
+
+    const forkTab = this.tabManager.addTab();
+    this.ensureReviewState(forkTab.state.tabId);
+    this.ensurePlanState(forkTab.state.tabId);
+    const forkTitle = `${t("sessionForkPrefix")} ${sourceConversation.title}`;
+    const forkConv = await forkTab.conversationController.createNew(forkTitle);
+    this.tabManager.setConversationId(forkTab.state.tabId, forkConv.id);
+    forkTab.conversationController.setMessages(sourceConversation.messages);
+
+    forkTab.panelEl.empty();
+    await this.renderConversationMessages(forkTab.panelEl, sourceConversation.messages);
+
+    try {
+      const threadId = await this.plugin.client.newThread();
+      forkTab.conversationController.setThreadId(threadId);
+      this.appendSystemMessageToPanel(forkTab.panelEl, t("messageForkCreated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.appendSystemMessageToPanel(forkTab.panelEl, tf("messageForkThreadFail", { error: message }));
+    }
+
+    this.tabManager.switchTo(forkTab.state.tabId);
+    this.updateStatus();
   }
 
   private async renderConversationMessages(panelEl: HTMLElement, messages: ChatMessage[]): Promise<void> {
@@ -1120,7 +1946,13 @@ export class CodexidianView extends ItemView {
         const el = this.createMessageEl(panelEl, "assistant", msg.id);
         await this.messageRenderer.renderContent(el, msg.content);
       } else {
-        this.appendMessageToPanel(panelEl, msg.role, msg.content, msg.id);
+        this.appendMessageToPanel(
+          panelEl,
+          msg.role,
+          msg.content,
+          msg.id,
+          msg.role === "user" ? msg.images : undefined,
+        );
       }
     }
   }
@@ -1141,20 +1973,64 @@ export class CodexidianView extends ItemView {
     return messageEl;
   }
 
-  private appendMessageToPanel(panelEl: HTMLElement, role: string, text: string, messageId?: string): HTMLElement {
+  private appendMessageToPanel(
+    panelEl: HTMLElement,
+    role: string,
+    text: string,
+    messageId?: string,
+    images?: Array<{ name: string; dataUrl: string }>,
+  ): HTMLElement {
     const el = this.createMessageEl(panelEl, role, messageId);
     el.setText(text);
+    if (role === "user" && images && images.length > 0) {
+      this.appendMessageImages(el, images);
+    }
     panelEl.scrollTop = panelEl.scrollHeight;
     return el;
+  }
+
+  private appendMessageImages(
+    messageEl: HTMLElement,
+    images: Array<{ name: string; dataUrl: string }>,
+  ): void {
+    const validImages = images
+      .map((image) => ({
+        name: image.name,
+        dataUrl: typeof image.dataUrl === "string" ? image.dataUrl.trim() : "",
+      }))
+      .filter((image) => image.dataUrl.length > 0);
+    if (validImages.length === 0) {
+      return;
+    }
+
+    const rowEl = messageEl.createDiv({ cls: "codexidian-msg-images" });
+    for (const image of validImages) {
+      const thumbEl = rowEl.createEl("img", { cls: "codexidian-msg-image-thumb" });
+      thumbEl.src = image.dataUrl;
+      thumbEl.alt = image.name;
+      thumbEl.title = image.name;
+      thumbEl.loading = "lazy";
+    }
   }
 
   private attachUserMessageActions(wrapperEl: HTMLElement, messageId: string): void {
     const actionsEl = wrapperEl.createDiv({ cls: "codexidian-msg-actions" });
 
+    const editBtn = actionsEl.createEl("button", {
+      cls: "codexidian-msg-action-btn",
+      text: "✏",
+      title: t("editMessageTitle"),
+    });
+    editBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.editMessage(messageId);
+    });
+
     const rewindBtn = actionsEl.createEl("button", {
       cls: "codexidian-msg-action-btn",
       text: "↩",
-      title: "Rewind to this message",
+      title: t("rewindTitle"),
     });
     rewindBtn.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1165,7 +2041,7 @@ export class CodexidianView extends ItemView {
     const forkBtn = actionsEl.createEl("button", {
       cls: "codexidian-msg-action-btn",
       text: "⑂",
-      title: "Fork from this message",
+      title: t("forkTitle"),
     });
     forkBtn.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1174,13 +2050,352 @@ export class CodexidianView extends ItemView {
     });
   }
 
-  private async rewindToMessage(messageId: string): Promise<void> {
+  private async editMessage(messageId: string): Promise<void> {
     if (this.running) {
-      new Notice("Cannot rewind while a turn is running.");
+      new Notice(t("noticeCannotEditRunning"));
       return;
     }
 
-    const confirmed = window.confirm("Rewind to this message? Messages after it will be removed.");
+    const tab = this.tabManager.getActiveTab();
+    if (!tab) return;
+
+    const wrapperEl = this.getMessageWrapper(tab.panelEl, messageId);
+    if (!wrapperEl || wrapperEl.dataset.msgRole !== "user") {
+      new Notice(t("noticeCannotEditNotFound"));
+      return;
+    }
+    if (wrapperEl.querySelector(".codexidian-msg-edit-area")) {
+      return;
+    }
+
+    const messageEl = wrapperEl.querySelector<HTMLElement>(".codexidian-msg-user");
+    if (!messageEl) return;
+
+    const originalText = messageEl.textContent ?? "";
+    const actionsEl = wrapperEl.querySelector<HTMLElement>(".codexidian-msg-actions");
+
+    messageEl.style.display = "none";
+    if (actionsEl) {
+      actionsEl.style.display = "none";
+    }
+
+    const editWrapEl = wrapperEl.createDiv({ cls: "codexidian-msg-edit-wrap" });
+    const editAreaEl = editWrapEl.createEl("textarea", { cls: "codexidian-msg-edit-area" });
+    editAreaEl.value = originalText;
+
+    const editActionsEl = editWrapEl.createDiv({ cls: "codexidian-msg-edit-actions" });
+    const saveBtn = editActionsEl.createEl("button", {
+      cls: "codexidian-msg-edit-save",
+      text: t("saveAndResend"),
+    });
+    const cancelBtn = editActionsEl.createEl("button", {
+      cls: "codexidian-msg-edit-cancel",
+      text: t("cancel"),
+    });
+
+    const restore = () => {
+      editWrapEl.remove();
+      messageEl.style.display = "";
+      if (actionsEl) {
+        actionsEl.style.display = "";
+      }
+    };
+
+    cancelBtn.addEventListener("click", () => {
+      restore();
+    });
+
+    saveBtn.addEventListener("click", () => {
+      void (async () => {
+        const editedText = editAreaEl.value.trim();
+        if (!editedText) {
+          new Notice(t("noticeEditedMessageEmpty"));
+          return;
+        }
+
+        const confirmed = window.confirm(t("confirmSaveEditResend"));
+        if (!confirmed) {
+          return;
+        }
+
+        saveBtn.disabled = true;
+        cancelBtn.disabled = true;
+
+        try {
+          const target = await tab.conversationController.truncateAfter(messageId);
+          if (!target || target.role !== "user") {
+            new Notice(t("noticeEditMessageNotFound"));
+            restore();
+            return;
+          }
+
+          this.removePanelContentFromMessage(tab.panelEl, messageId);
+
+          try {
+            const threadId = await this.plugin.client.newThread();
+            tab.conversationController.setThreadId(threadId);
+            this.appendSystemMessageToPanel(tab.panelEl, t("messageEditedStartedFreshThread"));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.appendSystemMessageToPanel(
+              tab.panelEl,
+              tf("messageEditedSaveButThreadFail", { error: message }),
+            );
+          }
+
+          this.setInputValue("");
+          await this.sendCurrentInput(editedText);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          new Notice(tf("noticeEditFailed", { error: message }));
+          restore();
+        }
+      })();
+    });
+
+    editAreaEl.focus();
+    editAreaEl.setSelectionRange(editAreaEl.value.length, editAreaEl.value.length);
+  }
+
+  private async applyCodeToNote(code: string, language: string, triggerEl?: HTMLElement): Promise<void> {
+    const trimmedCode = code.trimEnd();
+    if (!trimmedCode) {
+      new Notice(t("noticeNoCodeToApply"));
+      return;
+    }
+
+    const defaultPath = this.getCurrentMarkdownNotePath() ?? "";
+    const targetInput = window.prompt(t("promptTargetNotePath"), defaultPath);
+    if (targetInput === null) {
+      return;
+    }
+
+    const targetPath = normalizePath((targetInput.trim() || defaultPath).trim());
+    if (!targetPath) {
+      new Notice(t("noticeTargetPathRequired"));
+      return;
+    }
+
+    const pathValidation = this.getPathValidator().validate(targetPath, "write");
+    if (!pathValidation.allowed) {
+      new Notice(tf("securityBlocked", { reason: pathValidation.reason ?? t("securityBlockedReasonDefault") }));
+      return;
+    }
+
+    const mode = await this.pickApplyMode(triggerEl);
+    if (!mode) {
+      return;
+    }
+
+    const modeLabel = mode === "replace-selection" ? t("replaceSelection") : t("appendToNote");
+    if (this.plugin.settings.securityRequireApprovalForWrite) {
+      const confirmed = window.confirm(tf("confirmApplyCode", { path: targetPath, mode: modeLabel }));
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    const maxBytes = this.getMaxNoteSizeBytes();
+    try {
+      if (mode === "replace-selection") {
+        await this.applyCodeReplaceSelection(targetPath, trimmedCode, maxBytes);
+      } else {
+        await this.applyCodeAppendToNote(targetPath, trimmedCode, language, maxBytes);
+      }
+      new Notice(tf("noticeAppliedCode", { path: targetPath, mode: modeLabel }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(tf("noticeApplyCodeFailed", { error: message }));
+    }
+  }
+
+  private async pickApplyMode(triggerEl?: HTMLElement): Promise<"replace-selection" | "append-to-note" | null> {
+    const fallbackPick = (): "replace-selection" | "append-to-note" => {
+      const replace = window.confirm(t("confirmApplyModeFallback"));
+      return replace ? "replace-selection" : "append-to-note";
+    };
+
+    if (!triggerEl || !document.body) {
+      return fallbackPick();
+    }
+
+    document.querySelectorAll(".codexidian-apply-mode-menu").forEach((el) => el.remove());
+
+    return await new Promise<"replace-selection" | "append-to-note" | null>((resolve) => {
+      const menuEl = document.createElement("div");
+      menuEl.classList.add("codexidian-apply-mode-menu");
+
+      const replaceBtn = document.createElement("button");
+      replaceBtn.classList.add("codexidian-apply-mode-option");
+      replaceBtn.textContent = t("replaceSelection");
+
+      const appendBtn = document.createElement("button");
+      appendBtn.classList.add("codexidian-apply-mode-option");
+      appendBtn.textContent = t("appendToNote");
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.classList.add("codexidian-apply-mode-cancel");
+      cancelBtn.textContent = t("applyModeCancel");
+
+      menuEl.appendChild(replaceBtn);
+      menuEl.appendChild(appendBtn);
+      menuEl.appendChild(cancelBtn);
+      document.body.appendChild(menuEl);
+
+      const rect = triggerEl.getBoundingClientRect();
+      const menuWidth = 210;
+      const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+      const menuHeight = 132;
+      const top = Math.max(8, Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6));
+      menuEl.style.left = `${left}px`;
+      menuEl.style.top = `${top}px`;
+
+      let settled = false;
+      const cleanup = (result: "replace-selection" | "append-to-note" | null) => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener("mousedown", onOutsideMouseDown, true);
+        document.removeEventListener("keydown", onEscape, true);
+        menuEl.remove();
+        resolve(result);
+      };
+
+      const onOutsideMouseDown = (event: MouseEvent) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (menuEl.contains(target) || target === triggerEl) return;
+        cleanup(null);
+      };
+
+      const onEscape = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        cleanup(null);
+      };
+
+      replaceBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        cleanup("replace-selection");
+      });
+
+      appendBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        cleanup("append-to-note");
+      });
+
+      cancelBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        cleanup(null);
+      });
+
+      window.setTimeout(() => {
+        document.addEventListener("mousedown", onOutsideMouseDown, true);
+        document.addEventListener("keydown", onEscape, true);
+      }, 0);
+    });
+  }
+
+  private async applyCodeReplaceSelection(targetPath: string, code: string, maxBytes: number): Promise<void> {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView || !activeView.file) {
+      throw new Error(t("errorNoActiveEditor"));
+    }
+
+    const activePath = normalizePath(activeView.file.path);
+    const normalizedTarget = normalizePath(targetPath);
+    if (activePath !== normalizedTarget) {
+      throw new Error(t("errorReplaceSelectionRequiresTarget"));
+    }
+
+    const selected = activeView.editor.getSelection();
+    if (!selected) {
+      throw new Error(t("errorNoSelectionToReplace"));
+    }
+
+    const currentText = activeView.editor.getValue();
+    const projectedBytes = this.getByteLength(currentText) - this.getByteLength(selected) + this.getByteLength(code);
+    if (projectedBytes > maxBytes) {
+      throw new Error(tf("errorMaxSizeExceeded", { kb: this.plugin.settings.securityMaxNoteSize }));
+    }
+
+    activeView.editor.replaceSelection(code);
+  }
+
+  private async applyCodeAppendToNote(
+    targetPath: string,
+    code: string,
+    language: string,
+    maxBytes: number,
+  ): Promise<void> {
+    const normalizedTarget = normalizePath(targetPath);
+    const abstractFile = this.app.vault.getAbstractFileByPath(normalizedTarget);
+    const fenced = this.formatFencedCode(code, language);
+
+    if (abstractFile instanceof TFile) {
+      const current = await this.app.vault.read(abstractFile);
+      const separator = current.length === 0 ? "" : (current.endsWith("\n") ? "\n" : "\n\n");
+      const nextContent = `${current}${separator}${fenced}\n`;
+      if (this.getByteLength(nextContent) > maxBytes) {
+        throw new Error(tf("errorMaxSizeExceeded", { kb: this.plugin.settings.securityMaxNoteSize }));
+      }
+      await this.app.vault.modify(abstractFile, nextContent);
+      return;
+    }
+
+    if (abstractFile) {
+      throw new Error(tf("errorTargetPathNotFile", { path: normalizedTarget }));
+    }
+
+    const initialContent = `${fenced}\n`;
+    if (this.getByteLength(initialContent) > maxBytes) {
+      throw new Error(tf("errorMaxSizeExceeded", { kb: this.plugin.settings.securityMaxNoteSize }));
+    }
+
+    await this.app.vault.create(normalizedTarget, initialContent);
+  }
+
+  private formatFencedCode(code: string, language: string): string {
+    const lang = language.trim().toLowerCase();
+    const label = lang && lang !== "text" ? lang : "";
+    return `\`\`\`${label}\n${code}\n\`\`\``;
+  }
+
+  private getPathValidator(): PathValidator {
+    return new PathValidator(this.plugin.settings.securityBlockedPaths);
+  }
+
+  private getMaxNoteSizeBytes(): number {
+    const kb = Number.isFinite(this.plugin.settings.securityMaxNoteSize)
+      ? Math.max(1, Math.round(this.plugin.settings.securityMaxNoteSize))
+      : 500;
+    return kb * 1024;
+  }
+
+  private getByteLength(text: string): number {
+    return new TextEncoder().encode(text).length;
+  }
+
+  private getMessageWrapper(panelEl: HTMLElement, messageId: string): HTMLElement | null {
+    const children = Array.from(panelEl.children);
+    for (const child of children) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (child.dataset.msgId === messageId) {
+        return child;
+      }
+    }
+    return null;
+  }
+
+  private async rewindToMessage(messageId: string): Promise<void> {
+    if (this.running) {
+      new Notice(t("noticeCannotRewindRunning"));
+      return;
+    }
+
+    const confirmed = window.confirm(t("confirmRewind"));
     if (!confirmed) {
       return;
     }
@@ -1191,25 +2406,25 @@ export class CodexidianView extends ItemView {
     try {
       const target = await tab.conversationController.truncateAfter(messageId);
       if (!target || target.role !== "user") {
-        new Notice("Unable to rewind: message not found.");
+        new Notice(t("noticeUnableRewind"));
         return;
       }
 
       this.removePanelContentFromMessage(tab.panelEl, messageId);
-      this.inputEl.value = target.content;
+      this.setInputValue(target.content);
       this.inputEl.focus();
 
       try {
         const threadId = await this.plugin.client.newThread();
         tab.conversationController.setThreadId(threadId);
-        this.appendSystemMessageToPanel(tab.panelEl, "Rewind complete. Started a fresh thread.");
+        this.appendSystemMessageToPanel(tab.panelEl, t("messageRewindComplete"));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.appendSystemMessageToPanel(tab.panelEl, `Rewind succeeded, but failed to start new thread: ${message}`);
+        this.appendSystemMessageToPanel(tab.panelEl, tf("messageRewindThreadFail", { error: message }));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Rewind failed: ${message}`);
+      new Notice(tf("noticeRewindFailed", { error: message }));
     } finally {
       this.updateStatus();
     }
@@ -1217,13 +2432,13 @@ export class CodexidianView extends ItemView {
 
   private async forkFromMessage(messageId: string): Promise<void> {
     if (this.running) {
-      new Notice("Cannot fork while a turn is running.");
+      new Notice(t("noticeCannotForkRunning"));
       return;
     }
 
     const currentTabCount = this.tabManager.getAllTabStates().length;
     if (currentTabCount >= this.plugin.settings.maxTabs) {
-      new Notice(`Cannot fork: max tabs (${this.plugin.settings.maxTabs}) reached.`);
+      new Notice(tf("noticeCannotForkMax", { max: this.plugin.settings.maxTabs }));
       return;
     }
 
@@ -1233,11 +2448,13 @@ export class CodexidianView extends ItemView {
     try {
       const branchMessages = sourceTab.conversationController.getMessagesUpTo(messageId);
       if (branchMessages.length === 0) {
-        new Notice("Unable to fork: message not found.");
+        new Notice(t("noticeUnableFork"));
         return;
       }
 
       const forkTab = this.tabManager.addTab();
+      this.ensureReviewState(forkTab.state.tabId);
+      this.ensurePlanState(forkTab.state.tabId);
       const forkConv = await forkTab.conversationController.createNew(`Fork ${new Date().toLocaleString()}`);
       this.tabManager.setConversationId(forkTab.state.tabId, forkConv.id);
       forkTab.conversationController.setMessages(branchMessages);
@@ -1248,17 +2465,17 @@ export class CodexidianView extends ItemView {
       try {
         const threadId = await this.plugin.client.newThread();
         forkTab.conversationController.setThreadId(threadId);
-        this.appendSystemMessageToPanel(forkTab.panelEl, "Fork created with a fresh thread.");
+        this.appendSystemMessageToPanel(forkTab.panelEl, t("messageForkCreated"));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.appendSystemMessageToPanel(forkTab.panelEl, `Fork created, but failed to start new thread: ${message}`);
+        this.appendSystemMessageToPanel(forkTab.panelEl, tf("messageForkThreadFail", { error: message }));
       }
 
       this.tabManager.switchTo(forkTab.state.tabId);
       this.updateStatus();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Fork failed: ${message}`);
+      new Notice(tf("noticeForkFailed", { error: message }));
     }
   }
 
@@ -1286,6 +2503,33 @@ export class CodexidianView extends ItemView {
     }
   }
 
+  refreshLocale(): void {
+    this.titleEl?.setText(t("appTitle"));
+    this.updateHeaderButtons();
+    this.inputEl.placeholder = t("askPlaceholder");
+    this.modelLabelEl?.setText(t("model"));
+    this.effortLabelEl?.setText(t("effort"));
+    this.skillLabelEl?.setText(t("skill"));
+    this.modeLabelEl?.setText(t("mode"));
+    this.updateSkillButtonText();
+    this.updateModeButtonText();
+    if (this.attachBtn) {
+      this.attachBtn.setAttr("aria-label", t("attachImage"));
+      this.attachBtn.setAttr("title", t("attachImage"));
+    }
+    this.dropZoneTextEl?.setText(t("dropImagesHere"));
+    this.updateSendButton();
+    this.updateNoteContextToggle();
+    this.registerBuiltinSlashCommands();
+    this.statusPanel?.refreshLocale();
+    this.reviewPane?.refreshLocale();
+    for (const state of this.tabManager?.getAllTabStates() ?? []) {
+      this.renderPlanCardForTab(state.tabId);
+    }
+    this.updateQueueIndicator();
+    this.updateStatus();
+  }
+
   private async collectAttachedFileContents(
     notePath: string | null,
     panelEl: HTMLElement,
@@ -1304,7 +2548,7 @@ export class CodexidianView extends ItemView {
     for (const path of requestedPaths) {
       const abstractFile = this.app.vault.getAbstractFileByPath(path);
       if (!(abstractFile instanceof TFile)) {
-        this.appendSystemMessageToPanel(panelEl, `Context file not found: ${path}`);
+        this.appendSystemMessageToPanel(panelEl, tf("messageContextFileNotFound", { path }));
         continue;
       }
 
@@ -1316,7 +2560,7 @@ export class CodexidianView extends ItemView {
         fileContents.push({ path, content });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.appendSystemMessageToPanel(panelEl, `Failed to read context file ${path}: ${message}`);
+        this.appendSystemMessageToPanel(panelEl, tf("messageContextFileReadFailed", { path, error: message }));
       }
     }
 
@@ -1341,7 +2585,7 @@ export class CodexidianView extends ItemView {
   }
 
   private updateNoteContextToggle(): void {
-    this.noteContextToggleEl.setText(this.includeCurrentNoteContent ? "Include note: on" : "Include note: off");
+    this.noteContextToggleEl.setText(this.includeCurrentNoteContent ? t("noteToggleOn") : t("noteToggleOff"));
     if (this.includeCurrentNoteContent) {
       this.noteContextToggleEl.addClass("is-enabled");
     } else {
@@ -1407,10 +2651,10 @@ export class CodexidianView extends ItemView {
       bodyEl.createEl("code", { text: request.command });
     }
     if (request.filePath) {
-      bodyEl.createDiv({ cls: "codexidian-approval-meta", text: `File: ${request.filePath}` });
+      bodyEl.createDiv({ cls: "codexidian-approval-meta", text: tf("approvalMetaFile", { path: request.filePath }) });
     }
     if (request.cwd) {
-      bodyEl.createDiv({ cls: "codexidian-approval-meta", text: `cwd: ${request.cwd}` });
+      bodyEl.createDiv({ cls: "codexidian-approval-meta", text: tf("approvalMetaCwd", { cwd: request.cwd }) });
     }
     if (!request.command && !request.filePath && request.params) {
       bodyEl.createEl("code", {
@@ -1421,11 +2665,15 @@ export class CodexidianView extends ItemView {
     const actionsEl = cardEl.createDiv({ cls: "codexidian-approval-actions" });
     const approveBtn = actionsEl.createEl("button", {
       cls: "codexidian-approval-btn approve",
-      text: "Approve",
+      text: t("approve"),
+    });
+    const alwaysBtn = actionsEl.createEl("button", {
+      cls: "codexidian-approval-btn codexidian-approval-always-btn",
+      text: t("alwaysAllow"),
     });
     const denyBtn = actionsEl.createEl("button", {
       cls: "codexidian-approval-btn deny",
-      text: "Deny",
+      text: t("deny"),
     });
     const statusEl = cardEl.createDiv({ cls: "codexidian-approval-status" });
 
@@ -1434,7 +2682,7 @@ export class CodexidianView extends ItemView {
     return await new Promise<ApprovalDecision>((resolve) => {
       let settled = false;
       const timer = window.setTimeout(() => {
-        settle("decline", "Timed out (auto-denied)");
+        settle("decline", t("approvalTimedOut"));
       }, 60_000);
 
       const settle = (decision: ApprovalDecision, statusText: string) => {
@@ -1443,10 +2691,11 @@ export class CodexidianView extends ItemView {
         window.clearTimeout(timer);
 
         approveBtn.disabled = true;
+        alwaysBtn.disabled = true;
         denyBtn.disabled = true;
         cardEl.addClass("codexidian-approval-card-readonly");
         cardEl.addClass(decision === "accept" ? "codexidian-approval-accepted" : "codexidian-approval-denied");
-        statusEl.setText(`Decision: ${statusText}`);
+        statusEl.setText(tf("approvalDecisionPrefix", { status: statusText }));
         this.statusPanel?.updateEntry(statusEntryId, {
           status: decision === "accept" ? "completed" : "failed",
         });
@@ -1454,8 +2703,26 @@ export class CodexidianView extends ItemView {
         resolve(decision);
       };
 
-      approveBtn.addEventListener("click", () => settle("accept", "Approved"));
-      denyBtn.addEventListener("click", () => settle("decline", "Denied"));
+      approveBtn.addEventListener("click", () => settle("accept", t("approvalApproved")));
+      alwaysBtn.addEventListener("click", () => {
+        void (async () => {
+          try {
+            const result = await this.plugin.addAllowRuleFromApprovalRequest(request);
+            const typeLabel = this.getAllowRuleTypeLabel(result.ruleType);
+            if (result.status === "added") {
+              new Notice(tf("noticeAllowRuleAdded", { type: typeLabel, pattern: result.pattern }));
+            } else if (result.status === "exists") {
+              new Notice(tf("noticeAllowRuleExists", { type: typeLabel, pattern: result.pattern }));
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            new Notice(tf("noticeAllowRuleAddFailed", { error: message }));
+          } finally {
+            settle("accept", t("approvalAlwaysAllowed"));
+          }
+        })();
+      });
+      denyBtn.addEventListener("click", () => settle("decline", t("approvalDenied")));
     });
   }
 
@@ -1471,14 +2738,14 @@ export class CodexidianView extends ItemView {
     this.statusPanel?.addEntry({
       id: statusEntryId,
       type: "info",
-      label: "User input request",
+      label: t("statusUserInputRequest"),
       detail: this.truncateStatusDetail(request.questions.map((question) => question.id).join(", ")),
       status: "running",
     });
 
     const cardEl = tab.panelEl.createDiv({ cls: "codexidian-user-input-card" });
     const headerEl = cardEl.createDiv({ cls: "codexidian-user-input-header" });
-    headerEl.createSpan({ text: "User Input Request" });
+    headerEl.createSpan({ text: t("userInputRequest") });
 
     const states = new Map<string, {
       selected: string | null;
@@ -1510,7 +2777,7 @@ export class CodexidianView extends ItemView {
       const inputEl = questionEl.createEl("input", {
         cls: "codexidian-user-input-freeform",
         type: "text",
-        placeholder: "Or type a custom answer",
+        placeholder: t("userInputPlaceholder"),
       });
 
       const state = { selected: null as string | null, inputEl, optionButtons, firstOption };
@@ -1533,7 +2800,7 @@ export class CodexidianView extends ItemView {
     const actionsEl = cardEl.createDiv({ cls: "codexidian-user-input-actions" });
     const submitBtn = actionsEl.createEl("button", {
       cls: "codexidian-user-input-submit",
-      text: "Submit",
+      text: t("submit"),
     });
     const statusEl = cardEl.createDiv({ cls: "codexidian-user-input-status" });
 
@@ -1558,10 +2825,10 @@ export class CodexidianView extends ItemView {
     return await new Promise<UserInputResponse>((resolve) => {
       let settled = false;
       const timer = window.setTimeout(() => {
-        settle(resolveResponse(true), "Timed out. Used default answers.");
+        settle(resolveResponse(true), t("userInputTimedOutDefault"), true);
       }, 60_000);
 
-      const settle = (response: UserInputResponse, statusText: string) => {
+      const settle = (response: UserInputResponse, statusText: string, failed = false) => {
         if (settled) return;
         settled = true;
         window.clearTimeout(timer);
@@ -1576,14 +2843,14 @@ export class CodexidianView extends ItemView {
         cardEl.addClass("codexidian-user-input-card-readonly");
         statusEl.setText(statusText);
         this.statusPanel?.updateEntry(statusEntryId, {
-          status: statusText.startsWith("Timed out") ? "failed" : "completed",
+          status: failed ? "failed" : "completed",
         });
         this.restoreStatusAfterInteractiveCard();
         resolve(response);
       };
 
       submitBtn.addEventListener("click", () => {
-        settle(resolveResponse(false), "Submitted");
+        settle(resolveResponse(false), t("userInputSubmitted"), false);
       });
     });
   }
@@ -1591,16 +2858,54 @@ export class CodexidianView extends ItemView {
   updateStatus(): void {
     const settings = this.plugin.settings;
     const threadId = this.plugin.client.getThreadId();
-    const runningText = this.running ? "Running" : "Idle";
-    const threadText = threadId ? `thread ${threadId.slice(0, 8)}...` : "no thread";
+    const connected = this.plugin.client.isRunning();
+    const engineText = connected ? t("connected") : t("disconnected");
+    const runningText = this.running ? t("running") : t("idle");
+    const threadText = threadId ? `${t("thread")} ${threadId.slice(0, 8)}...` : t("noThread");
     this.statusEl.setText(
-      `${runningText} | ${threadText} | ${settings.model || "default"} | ${settings.thinkingEffort} | ${settings.approvalPolicy}`,
+      `${engineText} | ${runningText} | ${threadText} | ${settings.model || t("defaultModel")} | ${settings.thinkingEffort} | ${settings.approvalPolicy}`,
     );
+    this.updateHeaderButtons();
     this.sendBtn.disabled = false;
     this.inputEl.disabled = false;
     this.newThreadBtn.disabled = this.running;
     this.restartBtn.disabled = this.running;
     this.updateQueueIndicator();
+  }
+
+  private updateHeaderButtons(): void {
+    this.setHeaderIconButton(this.historyBtn, "clock", t("history"));
+    this.setHeaderIconButton(this.newThreadBtn, "file-plus", t("newThread"));
+    const restartTitle = this.plugin.client?.isRunning() ? t("restart") : t("reconnect");
+    this.setHeaderIconButton(this.restartBtn, "refresh-cw", restartTitle);
+  }
+
+  private setHeaderIconButton(
+    button: HTMLButtonElement | null | undefined,
+    icon: string,
+    tooltip: string,
+  ): void {
+    if (!button) return;
+    setIcon(button, icon);
+    button.setAttribute("aria-label", tooltip);
+  }
+
+  private updateSendButton(): void {
+    if (!this.sendBtn) return;
+    setIcon(this.sendBtn, "arrow-up");
+    this.sendBtn.setAttribute("aria-label", t("send"));
+  }
+
+  private autoResizeInput(): void {
+    if (!this.inputEl) return;
+    this.inputEl.style.height = "auto";
+    const newHeight = Math.min(Math.max(this.inputEl.scrollHeight, 80), 300);
+    this.inputEl.style.height = `${newHeight}px`;
+  }
+
+  private setInputValue(value: string): void {
+    this.inputEl.value = value;
+    this.autoResizeInput();
   }
 
   private isValidTabManagerState(state: unknown): state is TabManagerState {
@@ -1634,7 +2939,7 @@ export class CodexidianView extends ItemView {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        new Notice(`Codexidian: failed to restore tabs (${message}), creating a fresh tab.`);
+        new Notice(tf("noticeRestoreTabsFailed", { error: message }));
       }
     }
 
@@ -1672,12 +2977,287 @@ export class CodexidianView extends ItemView {
 
   private getApprovalTitle(type: ApprovalRequest["type"]): string {
     if (type === "commandExecution" || type === "execCommand") {
-      return "Command Execution Request";
+      return t("approvalTitleCommand");
     }
     if (type === "fileChange" || type === "applyPatch") {
-      return "File Change Request";
+      return t("approvalTitleFile");
     }
-    return "Approval Request";
+    return t("approvalTitleGeneric");
+  }
+
+  private detectPlanFromToolOutput(info: ToolCompleteInfo, output: string): PlanUpdate | null {
+    const signature = `${info.type || ""} ${info.name || ""}`.toLowerCase();
+    const likelyPlanTool = signature.includes("plan");
+    if (!likelyPlanTool && !output.trim()) {
+      return null;
+    }
+
+    const parsed = this.parseStructuredPlan(output);
+    if (parsed) {
+      return parsed;
+    }
+    if (!likelyPlanTool) {
+      return null;
+    }
+    return this.detectPlanFromAssistantText(output);
+  }
+
+  private detectPlanFromAssistantText(content: string): PlanUpdate | null {
+    const markdownPlan = this.parseMarkdownPlan(content);
+    if (markdownPlan) {
+      return markdownPlan;
+    }
+    return this.parseStructuredPlan(content);
+  }
+
+  private parseStructuredPlan(raw: unknown): PlanUpdate | null {
+    const parsedValue = this.parseUnknownJson(raw);
+    if (!parsedValue || typeof parsedValue !== "object") {
+      return null;
+    }
+
+    const record = parsedValue as Record<string, unknown>;
+    const candidate = (record.plan && typeof record.plan === "object") ? record.plan as Record<string, unknown> : record;
+    const rawSteps = Array.isArray(candidate.steps) ? candidate.steps : [];
+    if (rawSteps.length === 0) {
+      return null;
+    }
+
+    const steps: PlanStep[] = [];
+    for (let index = 0; index < rawSteps.length; index++) {
+      const rawStep = rawSteps[index];
+      if (typeof rawStep === "string") {
+        const text = rawStep.trim();
+        if (!text) continue;
+        steps.push({
+          id: `plan-step-${index + 1}`,
+          index: index + 1,
+          description: text,
+          status: "pending",
+        });
+        continue;
+      }
+
+      if (!rawStep || typeof rawStep !== "object") continue;
+      const stepObj = rawStep as Record<string, unknown>;
+      const descriptionCandidate = (
+        stepObj.description
+        ?? stepObj.text
+        ?? stepObj.title
+      );
+      const description = typeof descriptionCandidate === "string" ? descriptionCandidate.trim() : "";
+      if (!description) continue;
+      const rawStatus = typeof stepObj.status === "string" ? stepObj.status : "pending";
+      const rawId = typeof stepObj.id === "string" ? stepObj.id.trim() : "";
+      steps.push({
+        id: rawId || `plan-step-${index + 1}`,
+        index: index + 1,
+        description,
+        status: this.normalizePlanStepStatus(rawStatus),
+      });
+    }
+
+    if (steps.length === 0) {
+      return null;
+    }
+
+    const rawTitle = (
+      candidate.title
+      ?? candidate.name
+      ?? candidate.summary
+    );
+    const title = typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : t("planTitle");
+    const rawStatus = typeof candidate.status === "string" ? candidate.status : "proposed";
+    const rawPlanId = typeof candidate.planId === "string" ? candidate.planId : (
+      typeof candidate.id === "string" ? candidate.id : ""
+    );
+
+    return {
+      planId: rawPlanId.trim() || `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title,
+      steps,
+      status: this.normalizePlanStatus(rawStatus),
+    };
+  }
+
+  private parseMarkdownPlan(content: string): PlanUpdate | null {
+    if (!content || !content.trim()) return null;
+
+    const hasPlanHeading = /(^|\n)\s*#{2,4}\s*(plan|steps?)\b/i.test(content);
+    const lines = content.split(/\r?\n/);
+    const steps: PlanStep[] = [];
+
+    for (const line of lines) {
+      const numbered = line.match(/^\s*(\d+)[\.\)]\s+(.+)$/);
+      if (numbered) {
+        const description = numbered[2].trim();
+        if (description) {
+          steps.push({
+            id: `plan-step-${steps.length + 1}`,
+            index: steps.length + 1,
+            description,
+            status: "pending",
+          });
+        }
+        continue;
+      }
+
+      if (hasPlanHeading) {
+        const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+        if (bullet) {
+          const description = bullet[1].trim();
+          if (description) {
+            steps.push({
+              id: `plan-step-${steps.length + 1}`,
+              index: steps.length + 1,
+              description,
+              status: "pending",
+            });
+          }
+        }
+      }
+    }
+
+    const isValidPlan = hasPlanHeading ? steps.length >= 2 : steps.length >= 3;
+    if (!isValidPlan) {
+      return null;
+    }
+
+    return {
+      planId: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: t("planTitle"),
+      steps,
+      status: "proposed",
+    };
+  }
+
+  private parseUnknownJson(raw: unknown): unknown {
+    if (raw && typeof raw === "object") {
+      return raw;
+    }
+    if (typeof raw !== "string") {
+      return null;
+    }
+
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    const candidates = [trimmed];
+    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fencedMatch?.[1]) {
+      candidates.unshift(fencedMatch[1].trim());
+    }
+
+    for (const candidate of candidates) {
+      try {
+        return JSON.parse(candidate) as unknown;
+      } catch {
+        // Try next candidate.
+      }
+    }
+
+    return null;
+  }
+
+  private normalizePlanStatus(status: string): PlanUpdate["status"] {
+    const normalized = status.trim().toLowerCase();
+    if (normalized === "approved") return "approved";
+    if (normalized === "in_progress" || normalized === "inprogress" || normalized === "executing") return "in_progress";
+    if (normalized === "completed" || normalized === "done") return "completed";
+    return "proposed";
+  }
+
+  private normalizePlanStepStatus(status: string): PlanStep["status"] {
+    const normalized = status.trim().toLowerCase();
+    if (normalized === "approved") return "approved";
+    if (normalized === "executing" || normalized === "in_progress" || normalized === "inprogress") return "executing";
+    if (normalized === "completed" || normalized === "done") return "completed";
+    if (normalized === "failed" || normalized === "error") return "failed";
+    if (normalized === "skipped") return "skipped";
+    return "pending";
+  }
+
+  private inferDiffEntryFromTool(
+    completeInfo: ToolCompleteInfo,
+    startInfo?: Partial<ToolStartInfo>,
+  ): DiffEntry | null {
+    if (this.resolveEntryStatus(completeInfo.status) !== "completed") {
+      return null;
+    }
+
+    const type = (completeInfo.type || startInfo?.type || "").trim().toLowerCase();
+    const name = (completeInfo.name || startInfo?.name || "").trim();
+    const command = (completeInfo.command || startInfo?.command || "").trim();
+    const filePath = (
+      completeInfo.filePath
+      || startInfo?.filePath
+      || this.extractFilePathFromCommand(command)
+    )?.trim();
+
+    if (!filePath) {
+      return null;
+    }
+
+    const status = this.inferDiffStatusFromTool(type, name, command);
+    const summarySource = command || name || completeInfo.type;
+    return {
+      filePath,
+      status,
+      summary: this.truncateStatusDetail(summarySource),
+    };
+  }
+
+  private inferDiffStatusFromTool(
+    type: string,
+    name: string,
+    command: string,
+  ): DiffEntry["status"] {
+    const signature = `${type} ${name} ${command}`.toLowerCase();
+
+    if (
+      signature.includes("delete")
+      || signature.includes("remove")
+      || signature.includes("unlink")
+      || signature.includes(" rm ")
+    ) {
+      return "deleted";
+    }
+
+    if (
+      signature.includes("create")
+      || signature.includes("new_file")
+      || signature.includes("add_file")
+      || signature.includes("mkdir")
+      || signature.includes("touch ")
+    ) {
+      return "added";
+    }
+
+    return "modified";
+  }
+
+  private extractFilePathFromCommand(command: string): string | null {
+    if (!command) return null;
+
+    const quoted = command.match(/["']([^"']+\.[\w-]+)["']/);
+    if (quoted && quoted[1]) {
+      return normalizePath(quoted[1]);
+    }
+
+    const parts = command.split(/\s+/).map((part) => part.trim()).filter(Boolean);
+    for (let index = parts.length - 1; index >= 0; index--) {
+      const part = parts[index];
+      if (!part) continue;
+      if (part.startsWith("-")) continue;
+      if (part.includes("/") || part.includes("\\")) {
+        return normalizePath(part.replace(/^['"]|['"]$/g, ""));
+      }
+      if (/\.[a-zA-Z0-9]{1,8}$/.test(part)) {
+        return normalizePath(part.replace(/^['"]|['"]$/g, ""));
+      }
+    }
+
+    return null;
   }
 
   private resolveEntryStatus(status: string): "completed" | "failed" {
@@ -1703,6 +3283,31 @@ export class CodexidianView extends ItemView {
     return `${compact.slice(0, 80)}...`;
   }
 
+  private getAllowRuleTypeLabel(type: "command" | "file_write" | "tool"): string {
+    if (type === "command") return t("allowRuleTypeCommand");
+    if (type === "file_write") return t("allowRuleTypeFileWrite");
+    return t("allowRuleTypeTool");
+  }
+
+  private isThreadNotFoundMessage(message: string): boolean {
+    return message.toLowerCase().includes("thread not found");
+  }
+
+  private isImageInputUnsupportedMessage(message: string): boolean {
+    const normalized = message.toLowerCase();
+    if (!normalized.includes("image")) {
+      return false;
+    }
+    return (
+      normalized.includes("unknown variant")
+      || normalized.includes("invalid")
+      || normalized.includes("failed to parse")
+      || normalized.includes("deserialize")
+      || normalized.includes("not supported")
+      || normalized.includes("unsupported")
+    );
+  }
+
   private restoreStatusAfterInteractiveCard(): void {
     if (!this.statusPanel) return;
     if (this.running) {
@@ -1711,5 +3316,32 @@ export class CodexidianView extends ItemView {
     }
     this.statusPanel.setTurnStatus("idle");
     this.statusPanel.clearFinishedAfterDelay(3000);
+  }
+
+  private debugLog(event: string, payload?: unknown): void {
+    if (payload === undefined) {
+      console.log(`[CODEXIDIAN DEBUG] ${event}`);
+      return;
+    }
+    console.log(`[CODEXIDIAN DEBUG] ${event} ${this.stringifyDebug(payload)}`);
+  }
+
+  private debugError(event: string, error: unknown, extra?: Record<string, unknown>): void {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? (error.stack ?? "") : "";
+    const payload = {
+      ...(extra ?? {}),
+      message,
+      stack,
+    };
+    console.error(`[CODEXIDIAN DEBUG] ${event} ${this.stringifyDebug(payload)}`);
+  }
+
+  private stringifyDebug(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 }

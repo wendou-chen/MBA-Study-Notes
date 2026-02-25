@@ -1,6 +1,18 @@
+import type { Locale } from "./i18n";
+
 export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never";
 export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 export type ThinkingEffort = "low" | "medium" | "high" | "xhigh";
+export type ApprovalMode = "safe" | "prompt" | "yolo";
+export type SkillPreset = string;
+export type AllowRuleType = "command" | "file_write" | "tool";
+
+export interface AllowRule {
+  id: string;
+  type: AllowRuleType;
+  pattern: string;
+  createdAt: number;
+}
 
 export const AVAILABLE_MODELS = [
   { value: "", label: "Default (Codex)" },
@@ -15,11 +27,25 @@ export const EFFORT_OPTIONS: { value: ThinkingEffort; label: string }[] = [
   { value: "xhigh", label: "Extra High" },
 ];
 
+export const APPROVAL_MODES: { value: ApprovalMode; label: string; description: string }[] = [
+  { value: "safe", label: "Safe", description: "prompt-free decline" },
+  { value: "prompt", label: "Prompt", description: "ask in transcript" },
+  { value: "yolo", label: "Yolo", description: "auto-approve" },
+];
+
+export function isApprovalMode(value: string): value is ApprovalMode {
+  return APPROVAL_MODES.some((mode) => mode.value === value);
+}
+
 export interface CodexidianSettings {
+  locale: Locale;
   codexCommand: string;
   workingDirectory: string;
   model: string;
   thinkingEffort: ThinkingEffort;
+  skillPreset: SkillPreset;
+  approvalMode: ApprovalMode;
+  allowRules: AllowRule[];
   approvalPolicy: ApprovalPolicy;
   sandboxMode: SandboxMode;
   autoApproveRequests: boolean;
@@ -28,13 +54,26 @@ export interface CodexidianSettings {
   maxTabs: number;
   enableContextInjection: boolean;
   enableSelectionPolling: boolean;
+  enableReviewPane: boolean;
+  enableMcp: boolean;
+  mcpEndpoint: string;
+  mcpApiKey: string;
+  mcpContextNoteLimit: number;
+  // Security
+  securityBlockedPaths: string[];
+  securityRequireApprovalForWrite: boolean;
+  securityMaxNoteSize: number;
 }
 
 export const DEFAULT_SETTINGS: CodexidianSettings = {
+  locale: "zh",
   codexCommand: process.platform === "win32" ? "codex.cmd" : "codex",
   workingDirectory: "",
   model: "",
   thinkingEffort: "medium",
+  skillPreset: "none",
+  approvalMode: "prompt",
+  allowRules: [],
   approvalPolicy: "on-request",
   sandboxMode: "workspace-write",
   autoApproveRequests: true,
@@ -43,6 +82,21 @@ export const DEFAULT_SETTINGS: CodexidianSettings = {
   maxTabs: 5,
   enableContextInjection: true,
   enableSelectionPolling: true,
+  enableReviewPane: false,
+  enableMcp: false,
+  mcpEndpoint: "http://127.0.0.1:27124",
+  mcpApiKey: "",
+  mcpContextNoteLimit: 3,
+  securityBlockedPaths: [
+    ".obsidian/",
+    ".claude/",
+    ".codex/",
+    ".agent/",
+    ".env",
+    "*.secret",
+  ],
+  securityRequireApprovalForWrite: true,
+  securityMaxNoteSize: 500,
 };
 
 export interface TurnResult {
@@ -66,6 +120,9 @@ export interface ToolCompleteInfo {
   itemId: string;
   type: string;
   status: string;
+  name?: string;
+  command?: string;
+  filePath?: string;
 }
 
 export interface TurnHandlers {
@@ -88,6 +145,48 @@ export interface StatusEntry {
 }
 
 export type TurnStatus = "idle" | "thinking" | "streaming" | "tool_calling" | "waiting_approval";
+
+export interface ReviewComment {
+  id: string;
+  scope: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface DiffEntry {
+  filePath: string;
+  status: "added" | "modified" | "deleted";
+  summary?: string;
+}
+
+export interface PlanStep {
+  id: string;
+  index: number;
+  description: string;
+  status: "pending" | "approved" | "executing" | "completed" | "failed" | "skipped";
+}
+
+export interface PlanUpdate {
+  planId: string;
+  title: string;
+  steps: PlanStep[];
+  status: "proposed" | "approved" | "in_progress" | "completed";
+}
+
+export interface McpToolCallRequest {
+  requestId: string | number;
+  name: string;
+  arguments: Record<string, unknown>;
+  rawParams: unknown;
+}
+
+export interface McpToolCallResult {
+  success: boolean;
+  contentItems: Array<{ type: "inputText"; text: string }>;
+  isError?: boolean;
+  error?: string;
+  reason?: string;
+}
 
 export interface SlashCommand {
   name: string;
@@ -128,6 +227,9 @@ export interface ConversationMeta {
   messageCount: number;
   preview: string;
   threadId?: string;
+  archived?: boolean;
+  pinned?: boolean;
+  tags?: string[];
 }
 
 export interface Conversation {
@@ -137,7 +239,17 @@ export interface Conversation {
   updatedAt: number;
   lastResponseAt?: number;
   threadId?: string;
+  archived?: boolean;
+  pinned?: boolean;
+  tags?: string[];
   messages: ChatMessage[];
+}
+
+export type ConversationListFilter = "all" | "active" | "archived" | "pinned";
+
+export interface ChatMessageImage {
+  name: string;
+  dataUrl: string;
 }
 
 export interface ChatMessage {
@@ -145,6 +257,7 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
+  images?: ChatMessageImage[];
 }
 
 // --- Tabs ---

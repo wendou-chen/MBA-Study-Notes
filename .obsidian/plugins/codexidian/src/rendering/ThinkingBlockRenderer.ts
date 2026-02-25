@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 export interface ThinkingBlockHandle {
   el: HTMLElement;
   appendContent: (text: string) => void;
@@ -14,11 +16,11 @@ export class ThinkingBlockRenderer {
     });
     headerEl.createSpan({
       cls: "codexidian-thinking-title",
-      text: "Thinking...",
+      text: t("statusThinking"),
     });
     const metaEl = headerEl.createSpan({
       cls: "codexidian-thinking-meta",
-      text: "streaming",
+      text: t("streaming"),
     });
 
     const contentEl = blockEl.createEl("pre", {

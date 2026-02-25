@@ -1,6 +1,11 @@
 import type { SessionStorage } from "../storage/SessionStorage";
 import type { MessageRenderer } from "../rendering/MessageRenderer";
-import type { Conversation, ChatMessage, ConversationMeta } from "../types";
+import type {
+  ChatMessage,
+  Conversation,
+  ConversationListFilter,
+  ConversationMeta,
+} from "../types";
 import { generateConversationId, generateMessageId } from "../types";
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -24,9 +29,18 @@ export class ConversationController {
 
   setThreadId(threadId: string): void {
     if (this.activeConversation) {
-      this.activeConversation.threadId = threadId;
+      const normalized = threadId.trim();
+      if (!normalized) {
+        delete this.activeConversation.threadId;
+      } else {
+        this.activeConversation.threadId = normalized;
+      }
       this.scheduleSave();
     }
+  }
+
+  clearThreadId(): void {
+    this.setThreadId("");
   }
 
   async createNew(title?: string): Promise<Conversation> {
@@ -60,7 +74,11 @@ export class ConversationController {
     return this.switchTo(id);
   }
 
-  addMessage(role: ChatMessage["role"], content: string): ChatMessage {
+  addMessage(
+    role: ChatMessage["role"],
+    content: string,
+    options?: { images?: ChatMessage["images"] },
+  ): ChatMessage {
     if (!this.activeConversation) {
       throw new Error("No active conversation");
     }
@@ -70,6 +88,11 @@ export class ConversationController {
       content,
       timestamp: Date.now(),
     };
+    if (options?.images && options.images.length > 0) {
+      msg.images = options.images
+        .filter((image) => image.dataUrl.trim().length > 0)
+        .map((image) => ({ name: image.name, dataUrl: image.dataUrl }));
+    }
     this.activeConversation.messages.push(msg);
     this.activeConversation.updatedAt = Date.now();
     if (role === "assistant") {
@@ -94,7 +117,7 @@ export class ConversationController {
     this.activeConversation.updatedAt = Date.now();
     this.recomputeLastResponseAt();
     await this.flushSave();
-    return { ...target };
+    return this.cloneMessage(target);
   }
 
   getMessagesUpTo(messageId: string): ChatMessage[] {
@@ -109,7 +132,7 @@ export class ConversationController {
 
     return this.activeConversation.messages
       .slice(0, index + 1)
-      .map((msg) => ({ ...msg }));
+      .map((msg) => this.cloneMessage(msg));
   }
 
   setMessages(messages: ChatMessage[]): void {
@@ -117,7 +140,7 @@ export class ConversationController {
       throw new Error("No active conversation");
     }
 
-    this.activeConversation.messages = messages.map((msg) => ({ ...msg }));
+    this.activeConversation.messages = messages.map((msg) => this.cloneMessage(msg));
     this.activeConversation.updatedAt = Date.now();
     this.recomputeLastResponseAt();
     this.scheduleSave();
@@ -145,8 +168,26 @@ export class ConversationController {
     }
   }
 
-  async listConversations(): Promise<ConversationMeta[]> {
-    return this.storage.listConversations();
+  async listConversations(filter: ConversationListFilter = "all"): Promise<ConversationMeta[]> {
+    return this.storage.listConversations(filter);
+  }
+
+  async searchConversations(query: string, filter: ConversationListFilter = "all"): Promise<ConversationMeta[]> {
+    return this.storage.searchConversations(query, filter);
+  }
+
+  async updateMeta(
+    id: string,
+    partial: Partial<Pick<ConversationMeta, "archived" | "pinned" | "tags">>,
+  ): Promise<ConversationMeta | null> {
+    const updated = await this.storage.updateMeta(id, partial);
+    if (updated && this.activeConversation?.id === id) {
+      this.activeConversation.updatedAt = updated.updatedAt;
+      this.activeConversation.archived = updated.archived === true;
+      this.activeConversation.pinned = updated.pinned === true;
+      this.activeConversation.tags = updated.tags ? [...updated.tags] : [];
+    }
+    return updated;
   }
 
   private scheduleSave(): void {
@@ -191,5 +232,22 @@ export class ConversationController {
     }
     const latest = assistantMessages.reduce((max, msg) => Math.max(max, msg.timestamp), 0);
     this.activeConversation.lastResponseAt = latest > 0 ? latest : undefined;
+  }
+
+  private cloneMessage(message: ChatMessage): ChatMessage {
+    const normalizedImages = Array.isArray(message.images)
+      ? message.images
+        .filter((image): image is { name: string; dataUrl: string } => (
+          Boolean(image)
+          && typeof image.name === "string"
+          && typeof image.dataUrl === "string"
+          && image.dataUrl.trim().length > 0
+        ))
+        .map((image) => ({ name: image.name, dataUrl: image.dataUrl }))
+      : undefined;
+    return {
+      ...message,
+      images: normalizedImages,
+    };
   }
 }

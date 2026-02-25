@@ -1,9 +1,11 @@
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, spawn, spawnSync } from "child_process";
 
 import type {
   ApprovalDecision,
   ApprovalRequest,
   CodexidianSettings,
+  McpToolCallRequest,
+  McpToolCallResult,
   ToolCompleteInfo,
   ToolStartInfo,
   UserInputRequest,
@@ -25,6 +27,16 @@ interface PendingTurn {
   startedAt: number;
 }
 
+interface CommandProbeResult {
+  ok: boolean;
+  detail: string;
+}
+
+type TurnImageOption = {
+  dataUrl?: string;
+  path?: string;
+};
+
 export class CodexAppServerClient {
   private process: ChildProcess | null = null;
   private stdoutBuffer = "";
@@ -43,6 +55,11 @@ export class CodexAppServerClient {
   private turnActiveToolItemId = new Map<string, string>();
   private startPromise: Promise<void> | null = null;
   private disposed = false;
+  private intentionalShutdown = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly maxReconnectAttempts = 3;
+  private activeCommand: string | null = null;
 
   private currentThreadId: string | null = null;
   private currentTurnId: string | null = null;
@@ -54,10 +71,15 @@ export class CodexAppServerClient {
     private readonly onSystemMessage: (message: string) => void,
     private readonly onApprovalRequest?: (request: ApprovalRequest) => Promise<ApprovalDecision>,
     private readonly onUserInputRequest?: (request: UserInputRequest) => Promise<UserInputResponse>,
+    private readonly onMcpToolCall?: (request: McpToolCallRequest) => Promise<McpToolCallResult>,
   ) {}
 
   getThreadId(): string | null {
     return this.currentThreadId;
+  }
+
+  isRunning(): boolean {
+    return Boolean(this.process && !this.process.killed);
   }
 
   getCurrentTurnId(): string | null {
@@ -111,11 +133,15 @@ export class CodexAppServerClient {
   async restart(): Promise<void> {
     await this.dispose();
     this.disposed = false;
+    this.intentionalShutdown = false;
+    this.reconnectAttempts = 0;
     await this.start();
   }
 
   async dispose(): Promise<void> {
     this.disposed = true;
+    this.intentionalShutdown = true;
+    this.clearReconnectTimer();
 
     for (const [id, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout);
@@ -159,24 +185,33 @@ export class CodexAppServerClient {
   async sendTurn(
     prompt: string,
     handlers: TurnHandlers = {},
-    options?: { model?: string; effort?: string },
+    options?: { model?: string; effort?: string; images?: TurnImageOption[] },
   ): Promise<TurnResult> {
-    await this.start();
-    const threadId = await this.ensureThread();
-
-    const turnResponse = await this.request("turn/start", {
-      threadId,
-      input: [{ type: "text", text: prompt, text_elements: [] }],
-      cwd: null,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      model: options?.model?.trim() || null,
-      effort: options?.effort || null,
-      summary: null,
-      personality: null,
-      outputSchema: null,
-      collaborationMode: null,
+    this.debugLog("sendTurn:start", {
+      promptLength: prompt.length,
+      model: options?.model ?? null,
+      effort: options?.effort ?? null,
+      imageCount: options?.images?.length ?? 0,
     });
+    await this.start();
+    let threadId = await this.ensureThread();
+    let turnResponse: any;
+    try {
+      turnResponse = await this.request("turn/start", this.buildTurnStartParams(threadId, prompt, options));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!this.isThreadNotFoundError(message)) {
+        throw error;
+      }
+
+      this.debugLog("turn/start thread not found, retrying with thread/start", {
+        threadId,
+        message,
+      });
+      this.invalidateThreadState(threadId);
+      threadId = await this.startThread();
+      turnResponse = await this.request("turn/start", this.buildTurnStartParams(threadId, prompt, options));
+    }
 
     const turnId = turnResponse?.turn?.id as string | undefined;
     if (!turnId) {
@@ -215,7 +250,7 @@ export class CodexAppServerClient {
       const preDeltas = this.preTurnDeltas.get(turnId);
       if (preDeltas && preDeltas.length > 0) {
         for (const delta of preDeltas) {
-          handlers.onDelta?.(delta);
+          this.safeInvoke(() => handlers.onDelta?.(delta), `onDelta(pre):${turnId}`);
         }
         this.preTurnDeltas.delete(turnId);
       }
@@ -223,7 +258,7 @@ export class CodexAppServerClient {
       const preToolDeltas = this.preTurnToolDeltas.get(turnId);
       if (preToolDeltas && preToolDeltas.length > 0) {
         for (const delta of preToolDeltas) {
-          handlers.onToolDelta?.(delta);
+          this.safeInvoke(() => handlers.onToolDelta?.(delta), `onToolDelta(pre):${turnId}`);
         }
         this.preTurnToolDeltas.delete(turnId);
       }
@@ -231,7 +266,7 @@ export class CodexAppServerClient {
       const preThinkingDeltas = this.preTurnThinkingDeltas.get(turnId);
       if (preThinkingDeltas && preThinkingDeltas.length > 0) {
         for (const delta of preThinkingDeltas) {
-          handlers.onThinkingDelta?.(delta);
+          this.safeInvoke(() => handlers.onThinkingDelta?.(delta), `onThinkingDelta(pre):${turnId}`);
         }
         this.preTurnThinkingDeltas.delete(turnId);
       }
@@ -239,7 +274,7 @@ export class CodexAppServerClient {
       const preToolStarts = this.preTurnToolStarts.get(turnId);
       if (preToolStarts && preToolStarts.length > 0) {
         for (const info of preToolStarts) {
-          handlers.onToolStart?.(info);
+          this.safeInvoke(() => handlers.onToolStart?.(info), `onToolStart(pre):${turnId}`);
         }
         this.preTurnToolStarts.delete(turnId);
       }
@@ -247,7 +282,7 @@ export class CodexAppServerClient {
       const preToolCompletes = this.preTurnToolCompletes.get(turnId);
       if (preToolCompletes && preToolCompletes.length > 0) {
         for (const info of preToolCompletes) {
-          handlers.onToolComplete?.(info);
+          this.safeInvoke(() => handlers.onToolComplete?.(info), `onToolComplete(pre):${turnId}`);
         }
         this.preTurnToolCompletes.delete(turnId);
       }
@@ -264,7 +299,11 @@ export class CodexAppServerClient {
   }
 
   private async start(): Promise<void> {
-    if (this.process) {
+    this.intentionalShutdown = false;
+    this.disposed = false;
+    this.clearReconnectTimer();
+
+    if (this.process && !this.process.killed) {
       return;
     }
 
@@ -277,6 +316,7 @@ export class CodexAppServerClient {
 
     try {
       await this.startPromise;
+      this.reconnectAttempts = 0;
     } finally {
       this.startPromise = null;
     }
@@ -285,13 +325,44 @@ export class CodexAppServerClient {
   private async startInternal(): Promise<void> {
     const settings = this.getSettings();
     const cwd = this.resolveCwd(settings);
-
-    const child = spawn(settings.codexCommand, ["app-server", "--listen", "stdio://"], {
+    const env = this.buildSpawnEnv();
+    const commandCandidates = this.buildCommandCandidates(settings.codexCommand);
+    if (commandCandidates.length === 0) {
+      throw new Error("Codex command is empty. Please configure it in settings.");
+    }
+    this.debugLog("start:env", {
+      configuredCommand: settings.codexCommand,
+      reconnectAttempts: this.reconnectAttempts,
+      platform: process.platform,
       cwd,
-      env: process.env,
-      shell: process.platform === "win32",
-      windowsHide: true,
+      pathPreview: (env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").slice(0, 10),
+      candidates: commandCandidates,
     });
+    const selected = this.selectStartCommand(commandCandidates, env, cwd);
+    const command = selected.command;
+    this.activeCommand = command;
+    this.debugLog("app-server start command", {
+      command,
+      probe: selected.probe.detail,
+      reconnectAttempts: this.reconnectAttempts,
+      cwd,
+    });
+
+    let child: ChildProcess;
+    try {
+      child = spawn(command, ["app-server", "--listen", "stdio://"], {
+        cwd,
+        env,
+        shell: process.platform === "win32",
+        windowsHide: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.debugError("spawn:throw", error, { command, cwd });
+      this.onSystemMessage(`Failed to spawn Codex app-server: ${message}`);
+      this.scheduleReconnect();
+      throw error;
+    }
 
     this.process = child;
 
@@ -303,42 +374,133 @@ export class CodexAppServerClient {
       this.consumeStderr(chunk.toString());
     });
 
-    child.on("exit", (code) => {
-      const msg = `Codex app-server exited (${code ?? "unknown"}).`;
-      if (!this.disposed) {
-        this.onSystemMessage(msg);
-      }
-
-      for (const [id, pending] of this.pendingRequests) {
-        clearTimeout(pending.timeout);
-        pending.reject(new Error(msg));
-        this.pendingRequests.delete(id);
-      }
-
-      for (const [turnId, turn] of this.pendingTurns) {
-        turn.reject(new Error(msg));
-        this.pendingTurns.delete(turnId);
-        this.clearTurnTransientState(turnId);
-        this.clearCurrentTurnId(turnId);
-      }
-
-      this.process = null;
-      this.currentTurnId = null;
+    child.on("error", (error) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.debugError("spawn:error-event", error, { command, cwd });
+      this.handleProcessTermination(child, `Codex app-server error (${command}): ${reason}`);
     });
 
-    await this.request("initialize", {
-      clientInfo: {
-        name: "codexidian",
-        title: "Codexidian",
-        version: "0.1.0",
-      },
-      capabilities: {
-        experimentalApi: true,
-        optOutNotificationMethods: null,
-      },
+    child.on("exit", (code, signal) => {
+      const reason = signal ? `signal ${signal}` : `${code ?? "unknown"}`;
+      this.debugLog("spawn:exit-event", { command, code, signal: signal ?? null });
+      this.handleProcessTermination(child, `Codex app-server exited (${reason}) [${command}].`);
     });
 
-    this.notify("initialized");
+    try {
+      await this.request("initialize", {
+        clientInfo: {
+          name: "codexidian",
+          title: "Codexidian",
+          version: "0.1.0",
+        },
+        capabilities: {
+          experimentalApi: true,
+          optOutNotificationMethods: null,
+        },
+      });
+
+      this.notify("initialized");
+      this.reconnectAttempts = 0;
+    } catch (error) {
+      if (this.process === child && !child.killed) {
+        try {
+          child.kill();
+        } catch {
+          // Ignore shutdown race during failed initialization.
+        }
+      }
+      throw error;
+    }
+  }
+
+  private handleProcessTermination(child: ChildProcess, message: string): void {
+    if (this.process !== child) {
+      return;
+    }
+
+    this.rejectAllPending(message);
+    this.process = null;
+    this.currentTurnId = null;
+    this.activeCommand = null;
+    this.stdoutBuffer = "";
+    this.stderrBuffer = "";
+    this.preTurnDeltas.clear();
+    this.preTurnToolDeltas.clear();
+    this.preTurnThinkingDeltas.clear();
+    this.preTurnToolStarts.clear();
+    this.preTurnToolCompletes.clear();
+    this.preTurnResult.clear();
+    this.turnHasMessageDelta.clear();
+    this.turnHasThinkingDelta.clear();
+    this.turnActiveToolItemId.clear();
+
+    if (this.disposed || this.intentionalShutdown) {
+      return;
+    }
+
+    this.onSystemMessage(message);
+    this.scheduleReconnect();
+  }
+
+  private rejectAllPending(message: string): void {
+    for (const [id, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error(message));
+      this.pendingRequests.delete(id);
+    }
+
+    for (const [turnId, turn] of this.pendingTurns) {
+      turn.reject(new Error(message));
+      this.pendingTurns.delete(turnId);
+      this.clearTurnTransientState(turnId);
+      this.clearCurrentTurnId(turnId);
+    }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.disposed || this.intentionalShutdown) {
+      return;
+    }
+    if (this.reconnectTimer !== null) {
+      return;
+    }
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.onSystemMessage("Codex app-server reconnect attempts exhausted. Use Reconnect/Restart to try again.");
+      return;
+    }
+
+    this.reconnectAttempts += 1;
+    const attempt = this.reconnectAttempts;
+    const delayMs = Math.min(8_000, 1_000 * (2 ** (attempt - 1)));
+    this.onSystemMessage(
+      `Reconnecting to Codex app-server in ${Math.ceil(delayMs / 1000)}s (${attempt}/${this.maxReconnectAttempts})...`,
+    );
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.disposed || this.intentionalShutdown) {
+        return;
+      }
+
+      void this.start()
+        .then(() => {
+          this.onSystemMessage("Codex app-server reconnected.");
+        })
+        .catch((error) => {
+          const reason = error instanceof Error ? error.message : String(error);
+          this.onSystemMessage(`Reconnect attempt ${attempt} failed: ${reason}`);
+          if (!this.isRunning()) {
+            this.scheduleReconnect();
+          }
+        });
+    }, delayMs);
   }
 
   private async ensureThread(): Promise<string> {
@@ -371,7 +533,12 @@ export class CodexAppServerClient {
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
+        this.debugLog("thread/resume failed, falling back to thread/start", {
+          threadId: savedThreadId,
+          message: msg,
+        });
         this.onSystemMessage(`Failed to resume thread, starting new one. (${msg})`);
+        this.invalidateThreadState(savedThreadId);
       }
     }
 
@@ -401,6 +568,7 @@ export class CodexAppServerClient {
     }
 
     this.updateThreadId(threadId);
+    this.debugLog("new thread created", { threadId });
     return threadId;
   }
 
@@ -410,6 +578,108 @@ export class CodexAppServerClient {
       return explicit;
     }
     return this.getVaultPath();
+  }
+
+  private buildTurnStartParams(
+    threadId: string,
+    prompt: string,
+    options?: { model?: string; effort?: string; images?: TurnImageOption[] },
+  ): Record<string, unknown> {
+    const imageInputs: Array<{ type: "image"; url: string } | { type: "localImage"; path: string }> = [];
+    let droppedImages = 0;
+
+    for (const image of options?.images ?? []) {
+      const localPath = typeof image?.path === "string" ? image.path.trim() : "";
+      if (localPath.length > 0) {
+        imageInputs.push({ type: "localImage", path: localPath });
+        continue;
+      }
+
+      const rawUrl = typeof image?.dataUrl === "string" ? image.dataUrl.trim() : "";
+      const normalizedUrl = this.normalizeImageUrl(rawUrl);
+      if (!normalizedUrl) {
+        droppedImages += 1;
+        continue;
+      }
+      imageInputs.push({ type: "image", url: normalizedUrl });
+    }
+
+    if (imageInputs.length > 0 || droppedImages > 0) {
+      const firstImage = imageInputs[0];
+      this.debugLog("image payload", {
+        count: imageInputs.length,
+        droppedImages,
+        firstImageType: firstImage?.type ?? null,
+        firstImageUrlPrefix: firstImage && firstImage.type === "image"
+          ? firstImage.url.slice(0, 50)
+          : null,
+        firstImageUrlLength: firstImage && firstImage.type === "image"
+          ? firstImage.url.length
+          : null,
+        firstImagePath: firstImage && firstImage.type === "localImage"
+          ? firstImage.path
+          : null,
+      });
+    }
+
+    return {
+      threadId,
+      input: [
+        ...imageInputs,
+        { type: "text", text: prompt, text_elements: [] },
+      ],
+      cwd: null,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      model: options?.model?.trim() || null,
+      effort: options?.effort || null,
+      summary: null,
+      personality: null,
+      outputSchema: null,
+      collaborationMode: null,
+    };
+  }
+
+  private normalizeImageUrl(url: string): string | null {
+    const normalized = url.trim();
+    if (!normalized) {
+      return null;
+    }
+    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+      return normalized;
+    }
+    if (/^https?:\/\//i.test(normalized)) {
+      return normalized;
+    }
+    if (/^file:\/\//i.test(normalized)) {
+      return normalized;
+    }
+    // Fallback for raw base64 strings without a data URL prefix.
+    if (/^[A-Za-z0-9+/]+={0,2}$/.test(normalized) && normalized.length >= 64) {
+      return `data:image/png;base64,${normalized}`;
+    }
+    return null;
+  }
+
+  private isThreadNotFoundError(message: string): boolean {
+    const normalized = message.trim().toLowerCase();
+    return normalized.includes("thread not found");
+  }
+
+  private invalidateThreadState(threadId: string): void {
+    if (this.currentThreadId && this.currentThreadId === threadId) {
+      this.currentThreadId = null;
+    }
+
+    const settings = this.getSettings();
+    if (settings.lastThreadId && settings.lastThreadId.trim() === threadId) {
+      settings.lastThreadId = "";
+      try {
+        this.onThreadIdChanged("");
+      } catch {
+        // Best-effort persistence cleanup.
+      }
+    }
   }
 
   private consumeStdout(chunk: string): void {
@@ -509,7 +779,7 @@ export class CodexAppServerClient {
           cwd: this.extractApprovalCwd(message.params),
           params: message.params,
         };
-        const decision = await this.resolveApprovalDecision(approvalRequest, settings.autoApproveRequests);
+        const decision = await this.resolveApprovalDecision(approvalRequest);
 
         if (method === "execCommandApproval" || method === "applyPatchApproval") {
           result = { decision: decision === "accept" ? "approved" : "denied" };
@@ -531,10 +801,23 @@ export class CodexAppServerClient {
 
         result = response ?? this.buildDefaultUserInputResponse(userInputRequest);
       } else if (method === "item/tool/call") {
-        result = {
-          success: false,
-          contentItems: [{ type: "inputText", text: "Dynamic tool call is not handled by Codexidian." }],
-        };
+        if (!settings.enableMcp) {
+          result = this.buildToolCallErrorResult("MCP is disabled in Codexidian settings.");
+        } else if (!this.onMcpToolCall) {
+          result = this.buildToolCallErrorResult("No MCP tool handler is configured.");
+        } else {
+          const toolRequest = this.buildMcpToolCallRequest(requestId, message.params);
+          if (!toolRequest.name) {
+            result = this.buildToolCallErrorResult("Tool call is missing tool name.");
+          } else {
+            try {
+              result = await this.withTimeout(this.onMcpToolCall(toolRequest), 120_000);
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              result = this.buildToolCallErrorResult(`MCP tool call failed (${toolRequest.name}): ${reason}`);
+            }
+          }
+        }
       } else {
         this.writeJson({
           id: requestId,
@@ -575,15 +858,18 @@ export class CodexAppServerClient {
     return "applyPatch";
   }
 
-  private async resolveApprovalDecision(
-    request: ApprovalRequest,
-    autoApproveRequests: boolean,
-  ): Promise<ApprovalDecision> {
+  private async resolveApprovalDecision(request: ApprovalRequest): Promise<ApprovalDecision> {
     const requestSummary = this.buildApprovalSummary(request);
+    const { approvalMode } = this.getSettings();
 
-    if (autoApproveRequests) {
+    if (approvalMode === "yolo") {
       this.onSystemMessage(`[approval] Auto-approved ${requestSummary}`);
       return "accept";
+    }
+
+    if (approvalMode === "safe") {
+      this.onSystemMessage(`[approval] Auto-denied ${requestSummary}`);
+      return "decline";
     }
 
     if (this.onApprovalRequest) {
@@ -694,6 +980,87 @@ export class CodexAppServerClient {
       answers[question.id] = { answers: [firstOption] };
     }
     return { answers };
+  }
+
+  private buildMcpToolCallRequest(requestId: string | number, params: unknown): McpToolCallRequest {
+    const normalizedParams = params && typeof params === "object"
+      ? params as Record<string, unknown>
+      : {};
+
+    return {
+      requestId,
+      name: this.extractToolCallName(normalizedParams),
+      arguments: this.extractToolCallArguments(normalizedParams),
+      rawParams: params,
+    };
+  }
+
+  private extractToolCallName(params: Record<string, unknown>): string {
+    const candidates: unknown[] = [
+      params.name,
+      params.toolName,
+      (params.tool as Record<string, unknown> | undefined)?.name,
+      (params.call as Record<string, unknown> | undefined)?.name,
+      (params.request as Record<string, unknown> | undefined)?.name,
+      (params.toolCall as Record<string, unknown> | undefined)?.name,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+    return "";
+  }
+
+  private extractToolCallArguments(params: Record<string, unknown>): Record<string, unknown> {
+    const candidates: unknown[] = [
+      params.arguments,
+      params.args,
+      params.input,
+      (params.call as Record<string, unknown> | undefined)?.arguments,
+      (params.request as Record<string, unknown> | undefined)?.arguments,
+      (params.tool as Record<string, unknown> | undefined)?.input,
+    ];
+
+    for (const candidate of candidates) {
+      const parsed = this.parseToolArguments(candidate);
+      if (parsed) {
+        return parsed;
+      }
+    }
+    return {};
+  }
+
+  private parseToolArguments(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      return null;
+    } catch {
+      return { input: trimmed };
+    }
+  }
+
+  private buildToolCallErrorResult(message: string): McpToolCallResult {
+    return {
+      success: false,
+      isError: true,
+      contentItems: [{ type: "inputText", text: message }],
+    };
   }
 
   private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -816,6 +1183,9 @@ export class CodexAppServerClient {
             itemId,
             type: itemType || "tool",
             status: this.extractItemStatus(item, params),
+            name: this.extractToolName(item),
+            command: this.extractCommand(item),
+            filePath: this.extractFilePath(item),
           };
           this.emitToolComplete(turnId, info);
           if (this.turnActiveToolItemId.get(turnId) === itemId) {
@@ -832,7 +1202,9 @@ export class CodexAppServerClient {
       const willRetry = Boolean(params?.willRetry);
       if (typeof turnId === "string" && typeof messageText === "string") {
         const pending = this.pendingTurns.get(turnId);
-        pending?.handlers.onSystem?.(`[error] ${messageText}`);
+        if (pending) {
+          this.safeInvoke(() => pending.handlers.onSystem?.(`[error] ${messageText}`), `onSystem(error):${turnId}`);
+        }
         if (!willRetry && !pending) {
           this.onSystemMessage(`[error] ${messageText}`);
         }
@@ -858,7 +1230,10 @@ export class CodexAppServerClient {
         const pending = this.pendingTurns.get(turnId);
         if (pending) {
           if (status !== "completed" && result.errorMessage) {
-            pending.handlers.onSystem?.(`[turn ${status}] ${result.errorMessage}`);
+            this.safeInvoke(
+              () => pending.handlers.onSystem?.(`[turn ${status}] ${result.errorMessage}`),
+              `onSystem(turn-completed):${turnId}`,
+            );
           }
           pending.resolve(result);
           this.pendingTurns.delete(turnId);
@@ -891,7 +1266,7 @@ export class CodexAppServerClient {
   private emitTurnDelta(turnId: string, delta: string): void {
     const pending = this.pendingTurns.get(turnId);
     if (pending) {
-      pending.handlers.onDelta?.(delta);
+      this.safeInvoke(() => pending.handlers.onDelta?.(delta), `onDelta:${turnId}`);
       return;
     }
 
@@ -903,7 +1278,7 @@ export class CodexAppServerClient {
   private emitToolDelta(turnId: string, delta: string): void {
     const pending = this.pendingTurns.get(turnId);
     if (pending) {
-      pending.handlers.onToolDelta?.(delta);
+      this.safeInvoke(() => pending.handlers.onToolDelta?.(delta), `onToolDelta:${turnId}`);
       return;
     }
 
@@ -916,7 +1291,7 @@ export class CodexAppServerClient {
     this.turnHasThinkingDelta.add(turnId);
     const pending = this.pendingTurns.get(turnId);
     if (pending) {
-      pending.handlers.onThinkingDelta?.(delta);
+      this.safeInvoke(() => pending.handlers.onThinkingDelta?.(delta), `onThinkingDelta:${turnId}`);
       return;
     }
 
@@ -928,7 +1303,7 @@ export class CodexAppServerClient {
   private emitToolStart(turnId: string, info: ToolStartInfo): void {
     const pending = this.pendingTurns.get(turnId);
     if (pending) {
-      pending.handlers.onToolStart?.(info);
+      this.safeInvoke(() => pending.handlers.onToolStart?.(info), `onToolStart:${turnId}`);
       return;
     }
 
@@ -940,7 +1315,7 @@ export class CodexAppServerClient {
   private emitToolComplete(turnId: string, info: ToolCompleteInfo): void {
     const pending = this.pendingTurns.get(turnId);
     if (pending) {
-      pending.handlers.onToolComplete?.(info);
+      this.safeInvoke(() => pending.handlers.onToolComplete?.(info), `onToolComplete:${turnId}`);
       return;
     }
 
@@ -1088,6 +1463,174 @@ export class CodexAppServerClient {
   private clearCurrentTurnId(turnId: string): void {
     if (this.currentTurnId === turnId) {
       this.currentTurnId = null;
+    }
+  }
+
+  private buildCommandCandidates(configuredCommand: string): string[] {
+    const primary = configuredCommand.trim();
+    const candidates: string[] = [];
+    const pushUnique = (value: string): void => {
+      const normalized = value.trim();
+      if (!normalized) return;
+      if (!candidates.includes(normalized)) {
+        candidates.push(normalized);
+      }
+    };
+
+    const primaryIsCmd = primary.toLowerCase().endsWith(".cmd");
+
+    if (process.platform === "win32") {
+      pushUnique(primary);
+      if (primaryIsCmd) {
+        pushUnique(primary.slice(0, -4));
+      } else {
+        pushUnique(`${primary}.cmd`);
+      }
+      pushUnique("codex.cmd");
+      pushUnique("codex");
+    } else {
+      if (primaryIsCmd) {
+        pushUnique(primary.slice(0, -4));
+      }
+      pushUnique(primary);
+      pushUnique("codex");
+      pushUnique("codex.cmd");
+    }
+
+    return candidates;
+  }
+
+  private buildSpawnEnv(): NodeJS.ProcessEnv {
+    const basePath = process.env.PATH ?? "";
+    const delimiter = process.platform === "win32" ? ";" : ":";
+    const extras = process.platform === "win32"
+      ? [
+        "C:\\Program Files\\nodejs",
+        "C:\\Users\\admin\\AppData\\Roaming\\npm",
+      ]
+      : [
+        "/usr/local/bin",
+        "/usr/bin",
+        "/home/mirror/.local/bin",
+        "/home/mirror/.nvm/versions/node/v22.14.0/bin",
+      ];
+
+    const merged = [...basePath.split(delimiter).filter((part) => part.trim().length > 0)];
+    for (const part of extras) {
+      if (!merged.includes(part)) {
+        merged.push(part);
+      }
+    }
+
+    return {
+      ...process.env,
+      PATH: merged.join(delimiter),
+    };
+  }
+
+  private selectStartCommand(
+    candidates: string[],
+    env: NodeJS.ProcessEnv,
+    cwd: string,
+  ): { command: string; probe: CommandProbeResult } {
+    const startIndex = Math.min(this.reconnectAttempts, Math.max(0, candidates.length - 1));
+    const failures: string[] = [];
+
+    for (let offset = 0; offset < candidates.length; offset++) {
+      const index = (startIndex + offset) % candidates.length;
+      const candidate = candidates[index];
+      const probe = this.probeCommand(candidate, env, cwd);
+      this.debugLog("start:probe", {
+        candidate,
+        ok: probe.ok,
+        detail: probe.detail,
+      });
+      if (probe.ok) {
+        return { command: candidate, probe };
+      }
+      failures.push(`${candidate}: ${probe.detail}`);
+    }
+
+    const failureMessage = failures.join(" | ");
+    throw new Error(`No usable codex command found. ${failureMessage}`);
+  }
+
+  private probeCommand(command: string, env: NodeJS.ProcessEnv, cwd: string): CommandProbeResult {
+    try {
+      const result = spawnSync(command, ["--version"], {
+        cwd,
+        env,
+        shell: process.platform === "win32",
+        windowsHide: true,
+        encoding: "utf-8",
+        timeout: 5_000,
+      });
+
+      if (result.error) {
+        return {
+          ok: false,
+          detail: `${result.error.name}: ${result.error.message}`,
+        };
+      }
+
+      const stdout = typeof result.stdout === "string" ? result.stdout.trim() : "";
+      const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
+      const combined = (stdout || stderr).replace(/\s+/g, " ").trim();
+
+      if (result.status === 0) {
+        return {
+          ok: true,
+          detail: combined || "ok",
+        };
+      }
+
+      return {
+        ok: false,
+        detail: `exit=${result.status ?? "unknown"} ${combined || "no output"}`,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        ok: false,
+        detail: message,
+      };
+    }
+  }
+
+  private safeInvoke(callback: () => void, label: string): void {
+    try {
+      callback();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.onSystemMessage(`[callback:${label}] ${reason}`);
+      this.debugError("callback failure", error, { label, reason });
+    }
+  }
+
+  private debugLog(event: string, payload?: unknown): void {
+    if (payload === undefined) {
+      console.log(`[CODEXIDIAN DEBUG] ${event}`);
+      return;
+    }
+    console.log(`[CODEXIDIAN DEBUG] ${event} ${this.stringifyDebug(payload)}`);
+  }
+
+  private debugError(event: string, error: unknown, extra?: Record<string, unknown>): void {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? (error.stack ?? "") : "";
+    const payload = {
+      ...(extra ?? {}),
+      message,
+      stack,
+    };
+    console.error(`[CODEXIDIAN DEBUG] ${event} ${this.stringifyDebug(payload)}`);
+  }
+
+  private stringifyDebug(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
     }
   }
 }

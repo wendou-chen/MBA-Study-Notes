@@ -49,6 +49,7 @@ export class TabBar {
       const badge = this.containerEl.createDiv({ cls: "codexidian-tab-badge" });
       badge.dataset.tabId = tab.tabId;
       badge.setText(String(index + 1));
+      badge.setAttribute("aria-label", `Tab ${index + 1}`);
 
       if (tab.tabId === this.activeTabId) {
         badge.classList.add("codexidian-tab-badge-active");
@@ -67,6 +68,7 @@ export class TabBar {
     if (this.tabs.length < this.maxTabs) {
       const addBtn = this.containerEl.createDiv({ cls: "codexidian-tab-add" });
       addBtn.setText("+");
+      addBtn.setAttribute("aria-label", "New Tab");
       addBtn.addEventListener("click", () => this.onAdd());
     }
   }

@@ -1,6 +1,13 @@
 import { MarkdownRenderer, type App, type Component } from "obsidian";
+import { t } from "../i18n";
 
 const DEBOUNCE_MS = 100;
+
+export interface CodeApplyRequest {
+  code: string;
+  language: string;
+  triggerEl: HTMLElement;
+}
 
 export class MessageRenderer {
   private debounceTimers = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
@@ -8,6 +15,7 @@ export class MessageRenderer {
   constructor(
     private readonly app: App,
     private readonly component: Component,
+    private readonly onApplyCode?: (request: CodeApplyRequest) => void | Promise<void>,
   ) {}
 
   /**
@@ -75,20 +83,41 @@ export class MessageRenderer {
 
       const langLabel = document.createElement("span");
       langLabel.classList.add("codexidian-code-lang-label");
-      langLabel.setText(lang || "text");
+      langLabel.setText(lang || t("text"));
       header.appendChild(langLabel);
+
+      const actions = document.createElement("div");
+      actions.classList.add("codexidian-code-header-actions");
+
+      const applyBtn = document.createElement("button");
+      applyBtn.classList.add("codexidian-code-apply-btn");
+      applyBtn.setText(t("apply"));
+      applyBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const text = code?.textContent ?? pre.textContent ?? "";
+        if (!text.trim()) return;
+        if (!this.onApplyCode) return;
+        void this.onApplyCode({
+          code: text,
+          language: lang || "text",
+          triggerEl: applyBtn,
+        });
+      });
+      actions.appendChild(applyBtn);
 
       const copyBtn = document.createElement("button");
       copyBtn.classList.add("codexidian-code-copy-btn");
-      copyBtn.setText("Copy");
+      copyBtn.setText(t("copy"));
       copyBtn.addEventListener("click", () => {
         const text = code?.textContent ?? pre.textContent ?? "";
         navigator.clipboard.writeText(text).then(() => {
-          copyBtn.setText("Copied!");
-          setTimeout(() => copyBtn.setText("Copy"), 1500);
+          copyBtn.setText(t("copied"));
+          setTimeout(() => copyBtn.setText(t("copy")), 1500);
         });
       });
-      header.appendChild(copyBtn);
+      actions.appendChild(copyBtn);
+      header.appendChild(actions);
 
       pre.parentNode?.insertBefore(wrapper, pre);
       wrapper.appendChild(header);

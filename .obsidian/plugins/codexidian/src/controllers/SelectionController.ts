@@ -1,5 +1,6 @@
 import { MarkdownView, type App } from "obsidian";
 import type { EditorContext } from "../types";
+import { t, tf } from "../i18n";
 
 const POLL_INTERVAL = 250;
 
@@ -105,7 +106,13 @@ export class SelectionController {
     const text = this.indicatorEl.createSpan({ cls: "codexidian-context-text" });
     const lines = this.current.lineCount;
     const preview = this.current.selectedText.slice(0, 60).replace(/\n/g, " ");
-    text.setText(`${this.current.notePath} (${lines} line${lines > 1 ? "s" : ""}): ${preview}...`);
+    const lineLabel = lines > 1 ? t("linePlural") : t("lineSingular");
+    text.setText(tf("selectionPreview", {
+      path: this.current.notePath,
+      count: lines,
+      lineLabel,
+      preview,
+    }));
 
     const clearBtn = this.indicatorEl.createSpan({ cls: "codexidian-context-clear", text: "✕" });
     clearBtn.addEventListener("click", () => {
