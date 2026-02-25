@@ -118,13 +118,6 @@ export class CountdownView extends ItemView {
     btn.createEl('span', { cls: 'kc-bookmark-icon', text: '▶' });
     btn.createEl('span', { cls: 'kc-bookmark-text', text: recent.label });
 
-    // Calculate time ago
-    const minutesAgo = Math.floor((Date.now() - recent.timestamp) / 60000);
-    const timeLabel = minutesAgo < 60 ? `${minutesAgo}分钟前` : `${Math.floor(minutesAgo / 60)}小时前`;
-    btn.createEl('span', { cls: 'kc-bookmark-time', text: timeLabel });
-    // 自动保存指示
-    btn.createEl('span', { cls: 'kc-bookmark-auto', text: '● 自动' });
-
     btn.addEventListener('click', async () => {
       const file = this.app.vault.getAbstractFileByPath(recent.filePath);
       if (file) {
