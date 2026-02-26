@@ -44,6 +44,7 @@ export interface FocusSettings {
   scientificLongBreakMin: number;
   microPauseSec: number;
   strictMode: boolean;
+  focusLock: boolean;
   autoStart: boolean;
   defaultFocusMode: FocusMode;
   defaultSubject: Subject;
@@ -165,6 +166,7 @@ export const DEFAULT_FOCUS_SETTINGS: FocusSettings = {
   scientificLongBreakMin: 20,
   microPauseSec: 15,
   strictMode: false,
+  focusLock: false,
   autoStart: false,
   defaultFocusMode: 'pomodoro',
   defaultSubject: 'math',

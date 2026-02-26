@@ -405,6 +405,20 @@
   margin-top: 4px;
 }
 
+.kc-focus-lock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.kc-focus-lock-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* 今日统计 */
 .kc-focus-stats {
   display: flex;
@@ -418,6 +432,10 @@
 .kc-focus-stat {
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.kc-distraction-stat {
+  color: #e53e3e;
 }
 
 /* 微休息遮罩 */

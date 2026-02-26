@@ -11,6 +11,7 @@
   flex-direction: column;
   height: 100%;
   position: relative;
+  background: transparent;
 }
 
 /* --- Header --- */
@@ -23,6 +24,7 @@
   border-bottom: 1px solid var(--background-modifier-border);
   flex-shrink: 0;
 }
+
 .codexidian-header-left {
   display: flex;
   flex-direction: column;
@@ -30,10 +32,12 @@
   min-width: 0;
   flex-shrink: 1;
 }
+
 .codexidian-title {
   font-weight: 600;
   font-size: 14px;
 }
+
 .codexidian-status {
   font-size: 11px;
   color: var(--text-muted);
@@ -41,11 +45,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .codexidian-header-right {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
 }
+
 .codexidian-header-icon-btn {
   background: none;
   border: none;
@@ -57,10 +63,12 @@
   align-items: center;
   justify-content: center;
 }
+
 .codexidian-header-icon-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-header-icon-btn svg {
   width: 16px;
   height: 16px;
@@ -73,11 +81,13 @@
   gap: 2px;
   flex-shrink: 0;
 }
+
 .codexidian-tab-bar {
   display: flex;
   align-items: center;
   gap: 3px;
 }
+
 .codexidian-tab-badge {
   width: 24px;
   height: 24px;
@@ -93,17 +103,21 @@
   border: 1px solid transparent;
   transition: all 0.15s ease;
 }
+
 .codexidian-tab-badge:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-tab-badge-active {
   background: var(--codexidian-brand-bg);
   color: var(--codexidian-brand);
   border-color: var(--codexidian-brand);
 }
+
 .codexidian-tab-badge-streaming {
   animation: thinking-pulse 1.5s ease-in-out infinite;
 }
+
 .codexidian-tab-add {
   width: 24px;
   height: 24px;
@@ -116,6 +130,7 @@
   color: var(--text-muted);
   background: transparent;
 }
+
 .codexidian-tab-add:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -127,26 +142,30 @@
   overflow: hidden;
   position: relative;
 }
+
 .codexidian-tab-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
-  padding: 10px;
-  gap: 10px;
+  padding: 16px 24px;
+  gap: 16px;
+  background: transparent;
 }
 
 /* --- Messages --- */
 .codexidian-msg-wrapper {
   position: relative;
 }
+
 .codexidian-msg {
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 0;
+  padding: 0;
   word-break: break-word;
-  border: 1px solid var(--background-modifier-border);
+  border: none;
   max-width: 100%;
 }
+
 .codexidian-msg-actions {
   position: absolute;
   right: -4px;
@@ -155,9 +174,11 @@
   gap: 2px;
   z-index: 2;
 }
+
 .codexidian-msg-wrapper:hover .codexidian-msg-actions {
   display: flex;
 }
+
 .codexidian-msg-action-btn {
   width: 22px;
   height: 22px;
@@ -172,10 +193,12 @@
   color: var(--text-muted);
   padding: 0;
 }
+
 .codexidian-msg-action-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-msg-edit-wrap {
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -185,6 +208,7 @@
   flex-direction: column;
   gap: 8px;
 }
+
 .codexidian-msg-edit-area {
   width: 100%;
   min-height: 96px;
@@ -196,11 +220,13 @@
   color: var(--text-normal);
   font-size: 13px;
 }
+
 .codexidian-msg-edit-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
+
 .codexidian-msg-edit-save,
 .codexidian-msg-edit-cancel {
   font-size: 12px;
@@ -209,32 +235,48 @@
   border: 1px solid var(--background-modifier-border);
   cursor: pointer;
 }
+
 .codexidian-msg-edit-save {
   background: var(--codexidian-brand);
   color: #fff;
   border-color: var(--codexidian-brand-dim);
 }
+
 .codexidian-msg-edit-cancel {
   background: var(--background-primary);
   color: var(--text-muted);
 }
+
 .codexidian-msg-user {
-  background: var(--background-primary-alt);
+  background: rgba(0, 0, 0, 0.03);
+  /* Subtle dim for user prompt */
+  border-left: 3px solid var(--interactive-accent);
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 12px 0 8px 0;
 }
+
 .codexidian-msg-assistant {
-  background: var(--background-secondary);
+  background: transparent;
+  border-left: none;
+  padding: 8px 0;
+  border-radius: 0;
+  margin: 8px 0 24px 0;
 }
+
 .codexidian-msg-system {
   font-size: 12px;
   color: var(--text-muted);
   background: var(--background-primary);
 }
+
 .codexidian-msg-images {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
+
 .codexidian-msg-image-thumb {
   max-width: 200px;
   max-height: 150px;
@@ -243,16 +285,20 @@
   object-fit: contain;
   background: var(--background-primary);
 }
+
 .codexidian-message-content {
   line-height: 1.6;
-  font-size: 13px;
+  font-size: 14px;
 }
+
 .codexidian-message-content p {
   margin: 0.4em 0;
 }
+
 .codexidian-message-content p:first-child {
   margin-top: 0;
 }
+
 .codexidian-message-content p:last-child {
   margin-bottom: 0;
 }
@@ -264,6 +310,7 @@
   margin: 8px 0;
   border: 1px solid var(--background-modifier-border);
 }
+
 .codexidian-code-header {
   display: flex;
   align-items: center;
@@ -272,17 +319,20 @@
   background: var(--background-secondary-alt);
   font-size: 11px;
 }
+
 .codexidian-code-header-actions {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 .codexidian-code-lang-label {
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 .codexidian-code-apply-btn,
 .codexidian-code-copy-btn {
   font-size: 11px;
@@ -293,11 +343,13 @@
   color: var(--text-muted);
   border: 1px solid var(--background-modifier-border);
 }
+
 .codexidian-code-apply-btn:hover,
 .codexidian-code-copy-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-code-wrapper pre {
   margin: 0;
   border-radius: 0;
@@ -319,6 +371,7 @@
   z-index: 100;
   padding: 4px;
 }
+
 .codexidian-history-item {
   display: flex;
   align-items: center;
@@ -329,9 +382,11 @@
   font-size: 12px;
   gap: 6px;
 }
+
 .codexidian-history-item:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-history-title {
   flex: 1;
   min-width: 0;
@@ -339,14 +394,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-history-actions {
   display: none;
   gap: 4px;
   flex-shrink: 0;
 }
+
 .codexidian-history-item:hover .codexidian-history-actions {
   display: flex;
 }
+
 .codexidian-history-action-btn {
   font-size: 11px;
   padding: 1px 4px;
@@ -356,13 +414,16 @@
   border: none;
   border-radius: 3px;
 }
+
 .codexidian-history-action-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-history-action-btn.delete:hover {
   color: var(--text-error);
 }
+
 .codexidian-history-empty {
   padding: 12px;
   text-align: center;
@@ -375,23 +436,28 @@
   width: min(920px, 92vw);
   max-width: 920px;
 }
+
 .codexidian-session-title {
   margin: 0 0 8px 0;
   font-size: 18px;
   line-height: 1.25;
 }
+
 .codexidian-session-search {
   margin-bottom: 8px;
 }
+
 .codexidian-session-search-input {
   width: 100%;
 }
+
 .codexidian-session-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
 }
+
 .codexidian-session-filter-btn {
   border: 1px solid var(--background-modifier-border);
   border-radius: 999px;
@@ -402,15 +468,18 @@
   padding: 4px 10px;
   cursor: pointer;
 }
+
 .codexidian-session-filter-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-session-filter-btn.is-active {
   border-color: var(--interactive-accent);
   color: var(--interactive-accent);
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
+
 .codexidian-session-list {
   max-height: min(56vh, 640px);
   overflow-y: auto;
@@ -418,6 +487,7 @@
   border-radius: 10px;
   background: var(--background-primary-alt, var(--background-primary));
 }
+
 .codexidian-session-item {
   display: flex;
   align-items: center;
@@ -426,15 +496,19 @@
   padding: 10px 12px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
+
 .codexidian-session-item:last-child {
   border-bottom: none;
 }
+
 .codexidian-session-item:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-session-item.is-selected {
   background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
 }
+
 .codexidian-session-item-info {
   min-width: 0;
   flex: 1;
@@ -442,12 +516,14 @@
   flex-direction: column;
   gap: 3px;
 }
+
 .codexidian-session-item-title-row {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
+
 .codexidian-session-item-title {
   font-size: 13px;
   font-weight: 600;
@@ -456,9 +532,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-session-item-pin {
   font-size: 12px;
 }
+
 .codexidian-session-item-archived {
   font-size: 10px;
   color: var(--text-muted);
@@ -466,15 +544,18 @@
   border-radius: 999px;
   padding: 1px 6px;
 }
+
 .codexidian-session-item-meta {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .codexidian-session-item-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .codexidian-session-item-tag {
   font-size: 10px;
   line-height: 1.2;
@@ -483,6 +564,7 @@
   border-radius: 6px;
   padding: 1px 5px;
 }
+
 .codexidian-session-item-actions {
   display: flex;
   flex-wrap: wrap;
@@ -490,10 +572,12 @@
   opacity: 0;
   transition: opacity 0.16s ease;
 }
+
 .codexidian-session-item:hover .codexidian-session-item-actions,
 .codexidian-session-item.is-selected .codexidian-session-item-actions {
   opacity: 1;
 }
+
 .codexidian-session-action-btn {
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -504,17 +588,21 @@
   padding: 3px 8px;
   cursor: pointer;
 }
+
 .codexidian-session-action-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-session-action-btn.is-danger:hover {
   color: var(--text-error, #e74c3c);
 }
+
 .codexidian-session-action-btn:disabled {
   opacity: 0.55;
   cursor: default;
 }
+
 .codexidian-session-empty {
   margin-top: 8px;
   color: var(--text-muted);
@@ -534,18 +622,21 @@
   border-top: 1px solid var(--background-modifier-border);
   flex-shrink: 0;
 }
+
 .codexidian-note-context {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
+
 .codexidian-note-context-text {
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-note-context-toggle {
   font-size: 10px;
   border: 1px solid var(--background-modifier-border);
@@ -555,10 +646,12 @@
   padding: 1px 8px;
   cursor: pointer;
 }
+
 .codexidian-note-context-toggle.is-enabled {
   border-color: var(--codexidian-brand);
   color: var(--codexidian-brand);
 }
+
 .codexidian-selection-context {
   display: none;
   align-items: center;
@@ -566,9 +659,11 @@
   flex: 1;
   min-width: 0;
 }
+
 .codexidian-context-icon {
   flex-shrink: 0;
 }
+
 .codexidian-context-text {
   flex: 1;
   min-width: 0;
@@ -576,12 +671,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-context-clear {
   cursor: pointer;
   flex-shrink: 0;
   padding: 0 4px;
   border-radius: 3px;
 }
+
 .codexidian-context-clear:hover {
   background: var(--background-modifier-hover);
 }
@@ -593,22 +690,27 @@
   gap: 12px;
   padding: 0 0 4px 0;
 }
+
 .codexidian-toolbar-group {
   display: flex;
   align-items: center;
   gap: 4px;
 }
+
 .codexidian-toolbar-spacer {
   flex: 1;
 }
+
 .codexidian-toolbar-attach-group {
   margin-left: -4px;
 }
+
 .codexidian-toolbar-label {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 600;
 }
+
 .codexidian-toolbar-select {
   font-size: 12px;
   padding: 2px 6px;
@@ -618,15 +720,18 @@
   color: var(--text-normal);
   cursor: pointer;
 }
+
 .codexidian-toolbar-select:hover {
   border-color: var(--codexidian-brand);
 }
+
 .codexidian-toolbar-menu-btn {
   min-width: 110px;
   text-align: left;
   padding-right: 18px;
   position: relative;
 }
+
 .codexidian-toolbar-menu-btn::after {
   content: "▾";
   position: absolute;
@@ -638,6 +743,34 @@
   pointer-events: none;
 }
 
+/* --- Context Usage Indicator --- */
+.codexidian-context-usage-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.codexidian-context-usage-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.codexidian-context-ring {
+  flex-shrink: 0;
+}
+
+.codexidian-context-pct {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 /* --- Queue Indicator --- */
 .codexidian-queue-indicator {
   font-size: 11px;
@@ -645,6 +778,7 @@
   padding: 2px 0;
   display: none;
 }
+
 .codexidian-queue-indicator.visible {
   display: block;
 }
@@ -655,12 +789,14 @@
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .codexidian-file-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px 0;
 }
+
 .codexidian-file-chip {
   display: inline-flex;
   align-items: center;
@@ -670,12 +806,14 @@
   background: var(--background-secondary);
   font-size: 11px;
 }
+
 .codexidian-file-chip-text {
   max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-file-chip-remove {
   cursor: pointer;
   color: var(--text-muted);
@@ -687,10 +825,12 @@
   align-items: center;
   gap: 8px;
 }
+
 .codexidian-input-wrapper {
   flex: 1;
   position: relative;
 }
+
 .codexidian-attach-btn {
   width: 32px;
   height: 32px;
@@ -703,6 +843,7 @@
   font-size: 15px;
   line-height: 1;
 }
+
 .codexidian-toolbar-attach-group .codexidian-attach-btn {
   width: 24px;
   height: 24px;
@@ -713,14 +854,17 @@
   justify-content: center;
   padding: 0;
 }
+
 .codexidian-attach-btn:hover {
   border-color: var(--codexidian-brand);
   color: var(--text-normal);
   background: var(--background-modifier-hover);
 }
+
 .codexidian-attach-file-input {
   display: none;
 }
+
 .codexidian-file-search {
   position: absolute;
   left: 0;
@@ -735,11 +879,13 @@
   z-index: 100;
   margin-bottom: 4px;
 }
+
 .codexidian-file-search-item {
   padding: 4px 8px;
   cursor: pointer;
   font-size: 12px;
 }
+
 .codexidian-file-search-item:hover {
   background: var(--background-modifier-hover);
 }
@@ -758,6 +904,7 @@
   background: var(--background-primary);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
+
 .codexidian-apply-mode-option,
 .codexidian-apply-mode-cancel {
   border: 1px solid var(--background-modifier-border);
@@ -769,10 +916,12 @@
   color: var(--text-normal);
   text-align: left;
 }
+
 .codexidian-apply-mode-option:hover,
 .codexidian-apply-mode-cancel:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-apply-mode-cancel {
   color: var(--text-muted);
 }
@@ -793,9 +942,11 @@
   z-index: 100;
   margin-bottom: 4px;
 }
+
 .codexidian-slash-menu.is-visible {
   display: block;
 }
+
 .codexidian-slash-item {
   display: flex;
   flex-direction: column;
@@ -803,18 +954,22 @@
   cursor: pointer;
   border-bottom: 1px solid var(--background-modifier-border);
 }
+
 .codexidian-slash-item:last-child {
   border-bottom: none;
 }
+
 .codexidian-slash-item:hover,
 .codexidian-slash-item.is-selected {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-slash-item-name {
   font-weight: 600;
   font-size: 13px;
   color: var(--text-normal);
 }
+
 .codexidian-slash-item-desc {
   font-size: 11px;
   color: var(--text-muted);
@@ -826,12 +981,14 @@
   display: flex;
   flex-direction: column;
 }
+
 .codexidian-image-previews {
   display: none;
   flex-wrap: wrap;
   gap: 8px;
   padding: 4px 0;
 }
+
 .codexidian-attachment-chip {
   display: flex;
   align-items: center;
@@ -842,6 +999,7 @@
   border: 1px solid var(--background-modifier-border);
   background: var(--background-secondary);
 }
+
 .codexidian-attachment-thumb {
   width: 36px;
   height: 36px;
@@ -850,11 +1008,13 @@
   flex-shrink: 0;
   border: 1px solid var(--background-modifier-border);
 }
+
 .codexidian-attachment-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .codexidian-attachment-info {
   min-width: 0;
   flex: 1;
@@ -862,6 +1022,7 @@
   flex-direction: column;
   gap: 2px;
 }
+
 .codexidian-attachment-name {
   font-size: 11px;
   color: var(--text-normal);
@@ -869,10 +1030,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-attachment-size {
   font-size: 10px;
   color: var(--text-muted);
 }
+
 .codexidian-attachment-remove {
   width: 18px;
   height: 18px;
@@ -887,6 +1050,7 @@
   flex-shrink: 0;
   padding: 0;
 }
+
 .codexidian-attachment-remove:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -905,9 +1069,11 @@
   pointer-events: none;
   z-index: 40;
 }
+
 .codexidian-drop-zone.is-active {
   display: flex;
 }
+
 .codexidian-drop-zone-text {
   font-size: 13px;
   font-weight: 600;
@@ -925,6 +1091,7 @@
   background: var(--background-secondary);
   padding: 2px 8px;
 }
+
 .codexidian-thinking-header {
   cursor: pointer;
   display: flex;
@@ -936,20 +1103,24 @@
   font-weight: 600;
   list-style: none;
 }
+
 .codexidian-thinking-header::-webkit-details-marker {
   display: none;
 }
+
 .codexidian-thinking-meta {
   font-size: 11px;
   color: var(--text-faint);
   font-weight: 500;
 }
+
 .codexidian-thinking-content {
   margin: 8px 0 4px 0;
   white-space: pre-wrap;
   font-size: 12px;
   color: var(--text-muted);
 }
+
 .codexidian-thinking-streaming .codexidian-thinking-header {
   animation: thinking-pulse 1.5s ease-in-out infinite;
 }
@@ -964,6 +1135,7 @@
   flex-direction: column;
   gap: 6px;
 }
+
 .codexidian-tool-header {
   display: flex;
   align-items: center;
@@ -972,25 +1144,31 @@
   cursor: pointer;
   user-select: none;
 }
+
 .codexidian-tool-header:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
+
 .codexidian-tool-icon {
   color: var(--text-muted);
 }
+
 .codexidian-tool-title {
   font-weight: 600;
   color: var(--text-normal);
 }
+
 .codexidian-tool-body {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .codexidian-tool-card.is-collapsed .codexidian-tool-body {
   display: none;
 }
+
 .codexidian-tool-command,
 .codexidian-tool-file {
   font-family: var(--font-monospace);
@@ -999,19 +1177,23 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
 .codexidian-tool-output-wrap {
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
   padding: 4px 6px;
   background: var(--background-primary);
 }
+
 .codexidian-tool-output-wrap.is-empty {
   display: none;
 }
+
 .codexidian-tool-output-summary {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .codexidian-tool-output {
   margin: 6px 0 0 0;
   max-height: 220px;
@@ -1020,18 +1202,22 @@
   font-size: 11px;
   font-family: var(--font-monospace);
 }
+
 .codexidian-tool-status-running {
   margin-left: auto;
   color: var(--text-muted);
 }
+
 .codexidian-tool-status-done {
   margin-left: auto;
   color: var(--text-success);
 }
+
 .codexidian-tool-status-error {
   margin-left: auto;
   color: var(--text-error);
 }
+
 .codexidian-tool-duration {
   font-size: 11px;
   color: var(--text-muted);
@@ -1050,6 +1236,7 @@
   flex-direction: column;
   gap: 8px;
 }
+
 .codexidian-approval-header {
   display: flex;
   align-items: center;
@@ -1057,6 +1244,7 @@
   font-size: 12px;
   font-weight: 600;
 }
+
 .codexidian-approval-body {
   display: flex;
   flex-direction: column;
@@ -1066,14 +1254,17 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
 .codexidian-approval-meta {
   color: var(--text-muted);
 }
+
 .codexidian-approval-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .codexidian-approval-btn {
   border: none;
   border-radius: 6px;
@@ -1081,29 +1272,36 @@
   font-size: 12px;
   cursor: pointer;
 }
+
 .codexidian-approval-btn.approve {
   background: var(--codexidian-brand);
   color: white;
 }
+
 .codexidian-approval-always-btn {
   background: #0b7a62;
   color: white;
 }
+
 .codexidian-approval-btn.deny {
   background: var(--text-error);
   color: white;
 }
+
 .codexidian-approval-card-readonly .codexidian-approval-btn {
   opacity: 0.6;
   cursor: default;
 }
+
 .codexidian-approval-status {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .codexidian-approval-accepted {
   border-left-color: var(--text-success);
 }
+
 .codexidian-approval-denied {
   border-left-color: var(--text-error);
 }
@@ -1119,24 +1317,29 @@
   flex-direction: column;
   gap: 8px;
 }
+
 .codexidian-user-input-header {
   font-size: 12px;
   font-weight: 600;
 }
+
 .codexidian-user-input-question {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .codexidian-user-input-text {
   font-size: 12px;
   color: var(--text-normal);
 }
+
 .codexidian-user-input-options {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .codexidian-user-input-option {
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -1146,19 +1349,23 @@
   color: var(--text-normal);
   cursor: pointer;
 }
+
 .codexidian-user-input-option.is-selected {
   border-color: var(--codexidian-brand);
   background: var(--codexidian-brand-bg);
 }
+
 .codexidian-user-input-freeform {
   width: 100%;
   font-size: 12px;
 }
+
 .codexidian-user-input-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .codexidian-user-input-submit {
   border: none;
   border-radius: 6px;
@@ -1168,10 +1375,12 @@
   color: white;
   cursor: pointer;
 }
+
 .codexidian-user-input-status {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .codexidian-user-input-card-readonly .codexidian-user-input-option,
 .codexidian-user-input-card-readonly .codexidian-user-input-submit {
   opacity: 0.6;
@@ -1186,9 +1395,11 @@
   padding: 4px 12px;
   font-size: 12px;
 }
+
 .codexidian-status-panel.is-active {
   display: block;
 }
+
 .codexidian-status-header {
   display: flex;
   align-items: center;
@@ -1197,26 +1408,33 @@
   padding: 2px 0;
   color: var(--text-muted);
 }
+
 .codexidian-status-header .status-arrow {
   transition: transform 0.2s;
 }
+
 .codexidian-status-panel.is-collapsed .status-arrow {
   transform: rotate(-90deg);
 }
+
 .codexidian-status-panel.is-collapsed .codexidian-status-entries {
   display: none;
 }
+
 .codexidian-status-current {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 .codexidian-status-current.is-active {
   animation: thinking-pulse 1.5s ease-in-out infinite;
 }
+
 .codexidian-status-entries {
   margin-top: 4px;
 }
+
 .codexidian-status-entry {
   display: flex;
   align-items: center;
@@ -1225,32 +1443,39 @@
   line-height: 20px;
   color: var(--text-muted);
 }
+
 .codexidian-status-entry-icon {
   width: 16px;
   text-align: center;
 }
+
 .codexidian-status-entry .entry-label {
   font-weight: 600;
   color: var(--text-normal);
   flex-shrink: 0;
   min-width: 42px;
 }
+
 .codexidian-status-entry .entry-detail {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-status-entry .entry-duration {
   font-size: 11px;
   color: var(--text-faint);
 }
+
 .codexidian-status-entry--running {
   color: var(--text-accent);
 }
+
 .codexidian-status-entry--completed {
   color: var(--text-faint);
 }
+
 .codexidian-status-entry--failed {
   color: var(--text-error, #e74c3c);
 }
@@ -1263,9 +1488,11 @@
   padding: 4px 12px 6px 12px;
   font-size: 12px;
 }
+
 .codexidian-review-pane.is-active {
   display: block;
 }
+
 .codexidian-review-header {
   display: flex;
   align-items: center;
@@ -1274,16 +1501,19 @@
   color: var(--text-muted);
   padding: 2px 0;
 }
+
 .codexidian-review-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
+
 .codexidian-review-title {
   font-weight: 600;
   color: var(--text-normal);
 }
+
 .codexidian-review-count {
   font-size: 11px;
   line-height: 1;
@@ -1292,32 +1522,39 @@
   padding: 1px 6px;
   color: var(--text-muted);
 }
+
 .codexidian-review-arrow {
   transition: transform 0.2s ease;
 }
+
 .codexidian-review-pane.is-collapsed .codexidian-review-arrow {
   transform: rotate(-90deg);
 }
+
 .codexidian-review-pane.is-collapsed .codexidian-review-body {
   display: none;
 }
+
 .codexidian-review-body {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .codexidian-review-section-title {
   font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
+
 .codexidian-review-diffs,
 .codexidian-review-comments {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+
 .codexidian-review-diff-item {
   display: flex;
   align-items: center;
@@ -1328,17 +1565,21 @@
   background: var(--background-secondary);
   cursor: pointer;
 }
+
 .codexidian-review-diff-item:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-review-diff-item.is-selected {
   border-color: var(--codexidian-brand);
 }
+
 .codexidian-review-diff-icon {
   width: 14px;
   text-align: center;
   font-weight: 700;
 }
+
 .codexidian-review-diff-path {
   flex: 1;
   min-width: 0;
@@ -1347,11 +1588,13 @@
   white-space: nowrap;
   color: var(--text-normal);
 }
+
 .codexidian-review-diff-status {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
+
 .codexidian-review-diff-summary {
   max-width: 34%;
   overflow: hidden;
@@ -1360,22 +1603,27 @@
   color: var(--text-muted);
   font-size: 11px;
 }
+
 .codexidian-review-diff-item--added .codexidian-review-diff-icon,
 .codexidian-review-diff-item--added .codexidian-review-diff-status {
   color: var(--text-success);
 }
+
 .codexidian-review-diff-item--modified .codexidian-review-diff-icon,
 .codexidian-review-diff-item--modified .codexidian-review-diff-status {
   color: var(--text-accent);
 }
+
 .codexidian-review-diff-item--deleted .codexidian-review-diff-icon,
 .codexidian-review-diff-item--deleted .codexidian-review-diff-status {
   color: var(--text-error, #e74c3c);
 }
+
 .codexidian-review-comment-empty {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .codexidian-review-comment {
   display: flex;
   align-items: center;
@@ -1385,6 +1633,7 @@
   border-radius: 6px;
   background: var(--background-secondary);
 }
+
 .codexidian-review-comment-scope {
   flex-shrink: 0;
   max-width: 34%;
@@ -1395,6 +1644,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-review-comment-text {
   flex: 1;
   min-width: 0;
@@ -1403,6 +1653,7 @@
   white-space: nowrap;
   color: var(--text-normal);
 }
+
 .codexidian-review-comment-remove {
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
@@ -1413,20 +1664,24 @@
   padding: 2px 6px;
   cursor: pointer;
 }
+
 .codexidian-review-comment-remove:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
 .codexidian-review-add {
   display: grid;
   grid-template-columns: minmax(140px, 220px) 1fr auto;
   gap: 6px;
 }
+
 .codexidian-review-scope-input,
 .codexidian-review-comment-input {
   width: 100%;
   font-size: 12px;
 }
+
 .codexidian-review-add-btn {
   border: none;
   border-radius: 6px;
@@ -1441,6 +1696,7 @@
 .codexidian-plan-card-host {
   margin: 8px 0;
 }
+
 .codexidian-plan-card {
   border: 1px solid var(--background-modifier-border);
   border-left: 3px solid var(--interactive-accent);
@@ -1451,12 +1707,14 @@
   flex-direction: column;
   gap: 10px;
 }
+
 .codexidian-plan-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
+
 .codexidian-plan-title {
   font-size: 13px;
   font-weight: 600;
@@ -1465,6 +1723,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-plan-status {
   flex-shrink: 0;
   font-size: 10px;
@@ -1476,26 +1735,32 @@
   border-radius: 999px;
   padding: 3px 8px;
 }
+
 .codexidian-plan-status--proposed {
   color: var(--text-muted);
 }
+
 .codexidian-plan-status--approved {
   color: var(--text-accent);
   border-color: color-mix(in srgb, var(--text-accent) 45%, transparent);
 }
+
 .codexidian-plan-status--in_progress {
   color: var(--text-accent);
   border-color: color-mix(in srgb, var(--text-accent) 45%, transparent);
 }
+
 .codexidian-plan-status--completed {
   color: var(--text-success);
   border-color: color-mix(in srgb, var(--text-success) 45%, transparent);
 }
+
 .codexidian-plan-steps {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+
 .codexidian-plan-step {
   min-height: 24px;
   border: 1px solid var(--background-modifier-border);
@@ -1507,11 +1772,13 @@
   align-items: center;
   column-gap: 6px;
 }
+
 .codexidian-plan-step-index {
   font-size: 11px;
   color: var(--text-muted);
   text-align: right;
 }
+
 .codexidian-plan-step-description {
   font-size: 12px;
   color: var(--text-normal);
@@ -1519,34 +1786,43 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-plan-step-status {
   text-align: center;
   font-size: 12px;
 }
+
 .codexidian-plan-step--pending .codexidian-plan-step-status {
   color: var(--text-muted);
 }
+
 .codexidian-plan-step--approved .codexidian-plan-step-status {
   color: var(--text-accent);
 }
+
 .codexidian-plan-step--executing .codexidian-plan-step-status {
   color: var(--text-accent);
   animation: thinking-pulse 1.5s ease-in-out infinite;
 }
+
 .codexidian-plan-step--completed .codexidian-plan-step-status {
   color: var(--text-success);
 }
+
 .codexidian-plan-step--failed .codexidian-plan-step-status {
   color: var(--text-error, #e74c3c);
 }
+
 .codexidian-plan-step--skipped .codexidian-plan-step-status {
   color: var(--text-faint);
 }
+
 .codexidian-plan-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .codexidian-plan-action-btn {
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -1557,16 +1833,20 @@
   padding: 4px 10px;
   cursor: pointer;
 }
+
 .codexidian-plan-action-btn:hover {
   background: var(--background-modifier-hover);
 }
+
 .codexidian-plan-action-btn:disabled {
   opacity: 0.55;
   cursor: default;
 }
+
 .codexidian-plan-action-btn.plan-approve {
   border-color: color-mix(in srgb, var(--text-success) 40%, var(--background-modifier-border));
 }
+
 .codexidian-plan-action-btn.plan-execute {
   border-color: color-mix(in srgb, var(--text-accent) 40%, var(--background-modifier-border));
 }
@@ -1578,10 +1858,12 @@
   gap: 6px;
   margin: 6px 0 10px 0;
 }
+
 .codexidian-allow-rules-empty {
   font-size: 12px;
   color: var(--text-muted);
 }
+
 .codexidian-allow-rule-item {
   display: flex;
   align-items: center;
@@ -1592,6 +1874,7 @@
   border-radius: 6px;
   background: var(--background-secondary);
 }
+
 .codexidian-allow-rule-meta {
   font-size: 12px;
   color: var(--text-normal);
@@ -1599,6 +1882,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .codexidian-allow-rule-remove {
   font-size: 11px;
   padding: 2px 8px;
@@ -1608,6 +1892,7 @@
   color: var(--text-muted);
   cursor: pointer;
 }
+
 .codexidian-allow-rule-remove:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -1623,6 +1908,7 @@
   position: relative;
   flex-shrink: 0;
 }
+
 .codexidian-input {
   width: 100%;
   resize: vertical;
@@ -1630,6 +1916,7 @@
   max-height: 300px;
   font-size: 13px;
 }
+
 .codexidian-send-btn {
   width: 32px;
   height: 32px;
@@ -1645,9 +1932,11 @@
   transition: opacity 0.15s;
   flex-shrink: 0;
 }
+
 .codexidian-send-btn:hover {
   opacity: 0.85;
 }
+
 .codexidian-send-btn svg {
   width: 18px;
   height: 18px;
@@ -1655,9 +1944,17 @@
 
 /* --- Thinking Animation --- */
 @keyframes thinking-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
+
 .codexidian-thinking {
   animation: thinking-pulse 1.5s ease-in-out infinite;
   color: var(--codexidian-brand);

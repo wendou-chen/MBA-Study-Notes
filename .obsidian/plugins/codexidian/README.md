@@ -10,7 +10,7 @@
 
 A native Obsidian chat workspace powered by **Codex app-server**, with multi-tab sessions, rich tool/plan visualization, and vault-aware workflows.
 
-![Screenshot](screenshot.png)
+![Screenshot](image.png)
 
 ## Features
 

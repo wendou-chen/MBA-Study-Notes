@@ -33,11 +33,9 @@ export default class CodexidianPlugin extends Plugin {
   settings: CodexidianSettings = { ...DEFAULT_SETTINGS };
   client!: CodexAppServerClient;
   private mcpService!: VaultMcpService;
-  private availableSkills: string[] = [];
 
   async onload(): Promise<void> {
     await this.loadSettings();
-    await this.refreshAvailableSkills();
     setLocale(this.settings.locale);
     this.mcpService = new VaultMcpService(
       this.app,
@@ -132,47 +130,6 @@ export default class CodexidianPlugin extends Plugin {
       return view;
     }
     return null;
-  }
-
-  getAvailableSkills(): string[] {
-    return [...this.availableSkills];
-  }
-
-  async refreshAvailableSkills(): Promise<string[]> {
-    const result: string[] = [];
-    const seen = new Set<string>();
-    try {
-      const listing = await this.app.vault.adapter.list(".codex/skills");
-      const folders = Array.isArray((listing as { folders?: unknown }).folders)
-        ? (listing as { folders: unknown[] }).folders
-        : [];
-
-      for (const folder of folders) {
-        if (typeof folder !== "string") continue;
-        const normalized = folder.replace(/\\/g, "/");
-        const segments = normalized.split("/").filter(Boolean);
-        const name = segments[segments.length - 1]?.trim();
-        if (!name || seen.has(name)) continue;
-
-        const hasSkillMarkdown = await this.app.vault.adapter.exists(`${normalized}/SKILL.md`);
-        if (!hasSkillMarkdown) continue;
-        seen.add(name);
-        result.push(name);
-      }
-    } catch {
-      // Keep cached list if scanning fails.
-      return this.getAvailableSkills();
-    }
-
-    result.sort((a, b) => a.localeCompare(b));
-    this.availableSkills = result;
-
-    if (this.settings.skillPreset !== "none" && !result.includes(this.settings.skillPreset)) {
-      this.settings.skillPreset = "none";
-      await this.saveSettings();
-    }
-
-    return this.getAvailableSkills();
   }
 
   private async handleApprovalRequest(request: ApprovalRequest): Promise<ApprovalDecision> {
@@ -354,10 +311,8 @@ export default class CodexidianPlugin extends Plugin {
       this.settings.workingDirectory = this.getVaultBasePath();
     }
 
-    if (typeof this.settings.skillPreset !== "string" || this.settings.skillPreset.trim().length === 0) {
-      this.settings.skillPreset = DEFAULT_SETTINGS.skillPreset;
-    } else {
-      this.settings.skillPreset = this.settings.skillPreset.trim();
+    if (this.settings.contextWindowSize !== 128 && this.settings.contextWindowSize !== 400) {
+      this.settings.contextWindowSize = DEFAULT_SETTINGS.contextWindowSize;
     }
     if (!isApprovalMode(this.settings.approvalMode)) {
       const legacyModeRaw = String((loaded as any)?.collaborationMode ?? "").trim().toLowerCase();
@@ -677,26 +632,6 @@ class CodexidianSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName(t("settingSkillPresetName"))
-      .setDesc(t("settingSkillPresetDesc"))
-      .addDropdown((dropdown) => {
-        dropdown.addOption("none", t("skillPresetNone"));
-        for (const skill of this.plugin.getAvailableSkills()) {
-          dropdown.addOption(skill, skill);
-        }
-        const currentSkill = this.plugin.settings.skillPreset || "none";
-        if (currentSkill !== "none" && !this.plugin.getAvailableSkills().includes(currentSkill)) {
-          dropdown.addOption(currentSkill, currentSkill);
-        }
-        dropdown
-          .setValue(currentSkill)
-          .onChange(async (value) => {
-            this.plugin.settings.skillPreset = value.trim() || DEFAULT_SETTINGS.skillPreset;
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
       .setName(t("settingCollaborationModeName"))
       .setDesc(t("settingCollaborationModeDesc"))
       .addDropdown((dropdown) => {
@@ -712,6 +647,20 @@ class CodexidianSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+    new Setting(containerEl)
+      .setName(t("settingContextWindowName"))
+      .setDesc(t("settingContextWindowDesc"))
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("128", "128K")
+          .addOption("400", "400K")
+          .setValue(String(this.plugin.settings.contextWindowSize))
+          .onChange(async (value) => {
+            this.plugin.settings.contextWindowSize = Number(value) === 400 ? 400 : 128;
+            await this.plugin.saveSettings();
+          }),
+      );
 
     containerEl.createEl("h3", { text: t("settingsAllowRulesSection") });
     containerEl.createEl("p", {

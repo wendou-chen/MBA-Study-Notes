@@ -4,7 +4,6 @@ export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never"
 export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 export type ThinkingEffort = "low" | "medium" | "high" | "xhigh";
 export type ApprovalMode = "safe" | "prompt" | "yolo";
-export type SkillPreset = string;
 export type AllowRuleType = "command" | "file_write" | "tool";
 
 export interface AllowRule {
@@ -43,7 +42,7 @@ export interface CodexidianSettings {
   workingDirectory: string;
   model: string;
   thinkingEffort: ThinkingEffort;
-  skillPreset: SkillPreset;
+  contextWindowSize: 128 | 400;
   approvalMode: ApprovalMode;
   allowRules: AllowRule[];
   approvalPolicy: ApprovalPolicy;
@@ -71,7 +70,7 @@ export const DEFAULT_SETTINGS: CodexidianSettings = {
   workingDirectory: "",
   model: "",
   thinkingEffort: "medium",
-  skillPreset: "none",
+  contextWindowSize: 128,
   approvalMode: "prompt",
   allowRules: [],
   approvalPolicy: "on-request",

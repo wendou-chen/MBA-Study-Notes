@@ -162,6 +162,7 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
     const chapterDir = normalizePath(`${ERROR_NOTE_ROOT}/${chapter}`);
     const imagesDir = normalizePath(`${chapterDir}/images`);
     const chapterFilePath = normalizePath(`${chapterDir}/${chapter}错题.md`);
+    console.log("[error-collector] collectOneItem:", { chapter, imageLink, chapterFilePath });
 
     await this.ensureFolder(chapterDir);
     await this.ensureFolder(imagesDir);
@@ -173,8 +174,12 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
       const targetImagePath = normalizePath(`${imagesDir}/${copiedImageName}`);
       const isDuplicate = await this.copyImageIfNeeded(sourceImageFile, targetImagePath);
       if (isDuplicate) {
-        await this.incrementErrorCount(chapterFilePath, copiedImageName);
-        return { isDuplicate: true };
+        try {
+          await this.incrementErrorCount(chapterFilePath, copiedImageName);
+          return { isDuplicate: true };
+        } catch (_e) {
+          // Image exists but no matching record in markdown — treat as new entry
+        }
       }
     }
 
@@ -184,7 +189,6 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
       keySentence,
       answerText,
     });
-
     await this.appendToFile(chapterFilePath, record);
     return { isDuplicate: false };
   }
@@ -277,6 +281,8 @@ module.exports = class ErrorCollectorPlugin extends Plugin {
     const answerCallout = this.toCallout(safeAnswer);
 
     return [
+      "",
+      "---",
       "",
       imageBlock,
       "- **错误次数**: 1",

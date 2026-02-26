@@ -111,6 +111,19 @@ export class KaoyanSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    new Setting(containerEl)
+      .setName('专注锁定')
+      .setDesc('专注时全屏并锁定在 Obsidian，防止切换到其他应用')
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.focus.focusLock)
+          .onChange(async (value) => {
+            this.plugin.settings.focus.focusLock = value;
+            await this.plugin.saveSettings();
+            this.plugin.refreshViews();
+          });
+      });
+
     // ── AI 模型配置 ──
     containerEl.createEl('h3', { text: 'AI 模型配置' });
 

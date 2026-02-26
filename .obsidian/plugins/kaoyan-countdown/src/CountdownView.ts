@@ -20,6 +20,10 @@ export class CountdownView extends ItemView {
   private selectedFocusMode: FocusMode = 'pomodoro';
   private selectedSubject: Subject = 'math';
   private selectedDurationMin = 25;
+  private focusLockActive = false;
+  private focusLockTemporaryLeave = false;
+  private focusLockBlurHandler: (() => void) | null = null;
+  private focusLockFocusHandler: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: KaoyanCountdownPlugin) {
     super(leaf);
@@ -55,6 +59,7 @@ export class CountdownView extends ItemView {
   }
 
   async onClose() {
+    this.exitFocusLock();
     await this.persistFocusStats();
     this.timerEngine.destroy();
   }
@@ -449,6 +454,8 @@ export class CountdownView extends ItemView {
 
     switch (snap.state) {
       case 'IDLE': {
+        let focusLockChecked = false;
+
         const startBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-start', text: '开始专注' });
         startBtn.addEventListener('click', () => {
           this.timerEngine.focusMode = this.selectedFocusMode;
@@ -457,6 +464,9 @@ export class CountdownView extends ItemView {
             this.timerEngine.pomodoroDurationMin = this.selectedDurationMin;
           }
           this.timerEngine.start(this.selectedSubject);
+          if (focusLockChecked) {
+            this.enterFocusLock();
+          }
         });
         // Strict mode toggle (not for stopwatch)
         if (this.selectedFocusMode !== 'stopwatch') {
@@ -470,16 +480,39 @@ export class CountdownView extends ItemView {
           });
           strictToggle.createEl('span', { cls: 'kc-strict-label', text: '学霸模式 (禁止暂停/放弃)' });
         }
+        // Focus Lock toggle (all modes)
+        const lockToggle = controls.createDiv({ cls: 'kc-strict-toggle' });
+        const lockCb = lockToggle.createEl('input', { type: 'checkbox' }) as HTMLInputElement;
+        lockCb.checked = this.plugin.settings.focus.focusLock;
+        focusLockChecked = lockCb.checked;
+        lockCb.addEventListener('change', () => {
+          focusLockChecked = lockCb.checked;
+          this.plugin.settings.focus.focusLock = lockCb.checked;
+          this.plugin.saveSettings();
+        });
+        lockToggle.createEl('span', { cls: 'kc-strict-label', text: '🔒 专注锁定 (全屏防切换)' });
         break;
       }
       case 'FOCUSING': {
+        if (this.focusLockActive && !this.focusLockTemporaryLeave) {
+          const leaveBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-pause', text: '📖 暂时离开' });
+          leaveBtn.addEventListener('click', () => this.temporaryLeaveFocusLock());
+        }
+        if (this.focusLockActive && this.focusLockTemporaryLeave) {
+          const returnBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-start', text: '🔒 继续专注' });
+          returnBtn.addEventListener('click', () => this.returnToFocusLock());
+        }
+
         if (snap.focusMode === 'stopwatch') {
           // Stopwatch: stop + pause/resume
           const stopBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-stop', text: '结束专注' });
           stopBtn.addEventListener('click', () => this.timerEngine.stopStopwatch());
           if (this.timerEngine.isPaused) {
             const resumeBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-start', text: '继续' });
-            resumeBtn.addEventListener('click', () => this.timerEngine.resume());
+            resumeBtn.addEventListener('click', () => {
+              this.timerEngine.resume();
+              this.renderFocusContent();
+            });
           } else {
             const pauseBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-pause', text: '暂停' });
             pauseBtn.addEventListener('click', () => {
@@ -491,7 +524,10 @@ export class CountdownView extends ItemView {
           controls.createEl('span', { cls: 'kc-strict-label', text: '🔒 学霸模式' });
         } else if (this.timerEngine.isPaused) {
           const resumeBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-start', text: '继续' });
-          resumeBtn.addEventListener('click', () => this.timerEngine.resume());
+          resumeBtn.addEventListener('click', () => {
+            this.timerEngine.resume();
+            this.renderFocusContent();
+          });
           const resetBtn = controls.createEl('button', { cls: 'kc-btn kc-btn-reset', text: '放弃' });
           resetBtn.addEventListener('click', () => this.timerEngine.reset());
         } else {
@@ -520,6 +556,14 @@ export class CountdownView extends ItemView {
     const stats = container.createDiv({ cls: 'kc-focus-stats' });
     stats.createEl('span', { cls: 'kc-focus-stat', text: `🍅 ${snap.pomodorosToday} 个番茄` });
     stats.createEl('span', { cls: 'kc-focus-stat', text: `⏱ ${snap.totalFocusMinutesToday} 分钟` });
+    const awayStats = this.timerEngine.getAwayStats();
+    if (awayStats.count > 0) {
+      stats.createEl('span', { cls: 'kc-focus-stat', text: `📖 ${awayStats.count} 次查资料` });
+    }
+    const dStats = this.timerEngine.getDistractionStats();
+    if ((this.focusLockActive || snap.state === 'IDLE') && dStats.count > 0) {
+      stats.createEl('span', { cls: 'kc-focus-stat kc-distraction-stat', text: `⚠ ${dStats.count} 次分心` });
+    }
   }
 
   // ── Timer callbacks ────────────────────────────────────
@@ -536,10 +580,164 @@ export class CountdownView extends ItemView {
   }
 
   private onTimerStateChange(_snap: TimerSnapshot) {
+    if (_snap.state === 'IDLE' && this.focusLockActive) {
+      this.exitFocusLock();
+    }
     if (this.viewMode === 'focus') {
       this.renderFocusContent();
     }
     this.persistFocusStats();
+  }
+
+  // ── Focus Lock ───────────────────────────────────────
+
+  private enterFocusLock(): void {
+    if (this.focusLockActive) return;
+    this.focusLockActive = true;
+    this.focusLockTemporaryLeave = false;
+
+    const remote = this.getElectronRemote();
+    try {
+      if (remote) {
+        const win = remote.getCurrentWindow();
+        win.setFullScreen(true);
+        win.setAlwaysOnTop(true, 'screen-saver');
+      }
+    } catch { /* Electron API not available */ }
+
+    this.focusLockBlurHandler = () => {
+      if (!this.focusLockActive) return;
+      this.timerEngine.recordBlur();
+      if (this.timerEngine.strictMode && !this.timerEngine.isPaused) {
+        this.timerEngine.pause(true);
+      }
+      if (this.viewMode === 'focus') {
+        this.renderFocusContent();
+      }
+      setTimeout(() => {
+        if (!this.focusLockActive) return;
+        try {
+          if (remote) {
+            const win = remote.getCurrentWindow();
+            win.focus();
+            win.setAlwaysOnTop(true, 'screen-saver');
+          }
+        } catch { /* ignore */ }
+        new Notice('🔒 专注锁定中！请保持专注');
+      }, 300);
+    };
+
+    this.focusLockFocusHandler = () => {
+      if (!this.focusLockActive) return;
+      this.timerEngine.recordFocus();
+      if (this.viewMode === 'focus') {
+        this.renderFocusContent();
+      }
+    };
+
+    window.addEventListener('blur', this.focusLockBlurHandler);
+    window.addEventListener('focus', this.focusLockFocusHandler);
+    new Notice('🔒 已进入专注锁定模式');
+  }
+
+  private temporaryLeaveFocusLock(): void {
+    if (!this.focusLockActive || this.focusLockTemporaryLeave) return;
+    this.focusLockTemporaryLeave = true;
+    this.timerEngine.recordAway();
+    this.timerEngine.pause(true);
+
+    const remote = this.getElectronRemote();
+    try {
+      if (remote) {
+        const win = remote.getCurrentWindow();
+        win.setFullScreen(false);
+        win.setAlwaysOnTop(false);
+      }
+    } catch { /* ignore */ }
+
+    if (this.focusLockBlurHandler) {
+      window.removeEventListener('blur', this.focusLockBlurHandler);
+    }
+
+    new Notice('📖 暂时离开 — 计时已暂停，查完资料后点击"继续专注"');
+    if (this.viewMode === 'focus') {
+      this.renderFocusContent();
+    }
+  }
+
+  private returnToFocusLock(): void {
+    if (!this.focusLockActive || !this.focusLockTemporaryLeave) return;
+    this.focusLockTemporaryLeave = false;
+    this.timerEngine.recordReturn();
+    this.timerEngine.resume();
+
+    const remote = this.getElectronRemote();
+    try {
+      if (remote) {
+        const win = remote.getCurrentWindow();
+        win.setFullScreen(true);
+        win.setAlwaysOnTop(true, 'screen-saver');
+      }
+    } catch { /* ignore */ }
+
+    if (this.focusLockBlurHandler) {
+      window.addEventListener('blur', this.focusLockBlurHandler);
+    }
+
+    new Notice('🔒 已回到专注锁定模式');
+    if (this.viewMode === 'focus') {
+      this.renderFocusContent();
+    }
+  }
+
+  private exitFocusLock(): void {
+    if (!this.focusLockActive) return;
+    this.focusLockActive = false;
+    if (this.focusLockTemporaryLeave) {
+      this.timerEngine.recordReturn();
+    }
+    this.focusLockTemporaryLeave = false;
+
+    const remote = this.getElectronRemote();
+    try {
+      if (remote) {
+        const win = remote.getCurrentWindow();
+        win.setFullScreen(false);
+        win.setAlwaysOnTop(false);
+      }
+    } catch { /* ignore */ }
+
+    if (this.focusLockBlurHandler) {
+      window.removeEventListener('blur', this.focusLockBlurHandler);
+      this.focusLockBlurHandler = null;
+    }
+    if (this.focusLockFocusHandler) {
+      window.removeEventListener('focus', this.focusLockFocusHandler);
+      this.focusLockFocusHandler = null;
+    }
+
+    const awayStats = this.timerEngine.getAwayStats();
+    const dStats = this.timerEngine.getDistractionStats();
+    let msg = '🔓 专注锁定已退出';
+    if (awayStats.count > 0) {
+      msg += `\n📖 查资料 ${awayStats.count} 次，共 ${Math.round(awayStats.totalMs / 60000)} 分钟`;
+    }
+    if (dStats.count > 0) {
+      msg += `\n⚠ 分心 ${dStats.count} 次，共 ${Math.round(dStats.totalMs / 60000)} 分钟`;
+    }
+    if (awayStats.count === 0 && dStats.count === 0) {
+      msg = '🔓 专注锁定已退出，完美专注！';
+    }
+    new Notice(msg);
+  }
+
+  private getElectronRemote(): any | null {
+    try {
+      const electron = (window as any).require?.('electron');
+      return electron?.remote || (window as any).require?.('@electron/remote') || null;
+    } catch {
+      return null;
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────

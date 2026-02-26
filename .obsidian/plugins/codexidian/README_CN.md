@@ -10,7 +10,7 @@
 
 一个把 **Codex app-server** 原生嵌入 Obsidian 的聊天工作台，支持多标签会话、结构化运行状态展示，以及面向 Vault 的上下文工作流。
 
-![Screenshot](screenshot.png)
+![Screenshot](image.png)
 
 ## 功能特性
 

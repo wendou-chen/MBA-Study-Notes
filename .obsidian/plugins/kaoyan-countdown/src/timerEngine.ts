@@ -86,6 +86,14 @@ export class TimerEngine {
   private _paused = false;
   private _elapsedMs = 0;
 
+  // Distraction tracking (Focus Lock)
+  private distractionCount = 0;
+  private distractionMs = 0;
+  private lastBlurTime = 0;
+  private awayCount = 0;
+  private awayMs = 0;
+  private lastAwayTime = 0;
+
   // Callbacks
   private _tickCbs: EngineCallback[] = [];
   private _stateChangeCbs: EngineCallback[] = [];
@@ -139,6 +147,7 @@ export class TimerEngine {
     this._subject = subject;
     this._paused = false;
     this._elapsedMs = 0;
+    this.resetDistractionStats();
     this.checkDateReset();
 
     if (this.focusMode === 'stopwatch') {
@@ -156,8 +165,8 @@ export class TimerEngine {
     this.startTicking();
   }
 
-  pause(): boolean {
-    if (this.strictMode) return false;
+  pause(force = false): boolean {
+    if (!force && this.strictMode) return false;
     if (this._state !== 'FOCUSING') return false;
     this._paused = true;
     this.stopTicking();
@@ -176,6 +185,7 @@ export class TimerEngine {
     this._paused = false;
     this._elapsedMs = 0;
     this._pomodoroCount = 0;
+    this.resetDistractionStats();
     this.transition('IDLE');
     return true;
   }
@@ -197,6 +207,47 @@ export class TimerEngine {
 
   get isPaused(): boolean { return this._paused; }
   get state(): TimerState { return this._state; }
+
+  recordBlur(): void {
+    this.lastBlurTime = Date.now();
+    this.distractionCount++;
+  }
+
+  recordFocus(): void {
+    if (this.lastBlurTime > 0) {
+      this.distractionMs += Date.now() - this.lastBlurTime;
+      this.lastBlurTime = 0;
+    }
+  }
+
+  getDistractionStats(): { count: number; totalMs: number } {
+    return { count: this.distractionCount, totalMs: this.distractionMs };
+  }
+
+  recordAway(): void {
+    this.lastAwayTime = Date.now();
+    this.awayCount++;
+  }
+
+  recordReturn(): void {
+    if (this.lastAwayTime > 0) {
+      this.awayMs += Date.now() - this.lastAwayTime;
+      this.lastAwayTime = 0;
+    }
+  }
+
+  getAwayStats(): { count: number; totalMs: number } {
+    return { count: this.awayCount, totalMs: this.awayMs };
+  }
+
+  resetDistractionStats(): void {
+    this.distractionCount = 0;
+    this.distractionMs = 0;
+    this.lastBlurTime = 0;
+    this.awayCount = 0;
+    this.awayMs = 0;
+    this.lastAwayTime = 0;
+  }
 
   destroy() {
     this.stopTicking();
