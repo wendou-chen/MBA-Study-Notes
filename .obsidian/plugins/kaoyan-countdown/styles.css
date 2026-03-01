@@ -574,3 +574,35 @@
   color: #52c41a;
   white-space: nowrap;
 }
+
+.kc-bookmarks-wrapper {
+  margin: 8px 0;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+.kc-bookmarks-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.kc-bookmark-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+.kc-bookmark-btn:hover {
+  border-color: var(--interactive-accent);
+}
+.kc-bookmark-icon { font-size: 14px; color: var(--interactive-accent); }
+.kc-bookmark-text { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kc-bookmark-time { font-size: 11px; color: var(--text-faint); }

@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice, MarkdownView, FileView } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, FileView } from 'obsidian';
 import { CountdownView, VIEW_TYPE_COUNTDOWN } from './CountdownView';
 import { KaoyanSettings, DEFAULT_SETTINGS, DEFAULT_FOCUS_SETTINGS, DEFAULT_FOCUS_STATS, DEFAULT_AI_SETTINGS } from './types';
 import { KaoyanSettingTab } from './settingsTab';
@@ -148,6 +148,7 @@ export default class KaoyanCountdownPlugin extends Plugin {
     this.settings.focus = Object.assign({}, DEFAULT_FOCUS_SETTINGS, data.focus);
     this.settings.focusStats = Object.assign({}, DEFAULT_FOCUS_STATS, data.focusStats);
     this.settings.ai = Object.assign({}, DEFAULT_AI_SETTINGS, data.ai);
+    this.settings.bookmarks = data.bookmarks || [];
   }
 
   async saveSettings() {

@@ -113,16 +113,15 @@ export class CountdownView extends ItemView {
   private renderBookmarks(container: HTMLElement) {
     const bookmarks = this.plugin.settings.bookmarks;
     if (!bookmarks || bookmarks.length === 0) return;
-
     const wrapper = container.createDiv({ cls: 'kc-bookmarks-wrapper' });
     wrapper.createEl('div', { cls: 'kc-bookmarks-title', text: '📖 继续学习' });
-
-    // Show only the most recent one prominently, others as small list or just the recent one
     const recent = bookmarks[0];
     const btn = wrapper.createEl('button', { cls: 'kc-bookmark-btn' });
     btn.createEl('span', { cls: 'kc-bookmark-icon', text: '▶' });
     btn.createEl('span', { cls: 'kc-bookmark-text', text: recent.label });
-
+    const minutesAgo = Math.floor((Date.now() - recent.timestamp) / 60000);
+    const timeLabel = minutesAgo < 60 ? minutesAgo + '分钟前' : Math.floor(minutesAgo / 60) + '小时前';
+    btn.createEl('span', { cls: 'kc-bookmark-time', text: timeLabel });
     btn.addEventListener('click', async () => {
       const file = this.app.vault.getAbstractFileByPath(recent.filePath);
       if (file) {
