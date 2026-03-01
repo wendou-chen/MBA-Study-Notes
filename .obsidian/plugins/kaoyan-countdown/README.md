@@ -1,5 +1,11 @@
 # Kaoyan Countdown
 
+## Quick Install - No Build Required
+1. Copy the .obsidian/plugins/kaoyan-countdown/ folder into your Vault .obsidian/plugins/ directory.
+2. Enable Kaoyan Countdown in Obsidian Settings then Community Plugins.
+3. No npm install or npm run build needed; main.js is pre-compiled and included.
+Note: If you modify the src/ source files, rebuild with: cd .obsidian/plugins/kaoyan-countdown && npm install && npm run build
+
 An [Obsidian](https://obsidian.md) plugin that displays a countdown to the **Chinese Postgraduate Entrance Exam (考研)** with phase tracking, daily plans, and a focus timer.
 
 [中文说明](#中文说明)
