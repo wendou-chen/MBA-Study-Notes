@@ -13,11 +13,26 @@ export interface AllowRule {
   createdAt: number;
 }
 
-export const AVAILABLE_MODELS = [
-  { value: "", label: "Default (Codex)" },
-  { value: "codex-5.3", label: "Codex 5.3" },
-  { value: "gpt-5.2", label: "GPT 5.2" },
-] as const;
+const LEGACY_MODEL_OVERRIDES = new Set([
+  "codex-5.3",
+  "gpt-5.2",
+  "gpt-5.3-codex",
+]);
+
+export const CUSTOM_MODEL_OPTION_VALUE = "__custom_model__";
+
+export function normalizeModelOverride(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (LEGACY_MODEL_OVERRIDES.has(normalized.toLowerCase())) {
+    return "";
+  }
+
+  return normalized;
+}
 
 export const EFFORT_OPTIONS: { value: ThinkingEffort; label: string }[] = [
   { value: "low", label: "Low" },
@@ -85,7 +100,7 @@ export const DEFAULT_SETTINGS: CodexidianSettings = {
   enableMcp: false,
   mcpEndpoint: "http://127.0.0.1:27124",
   mcpApiKey: "",
-  mcpContextNoteLimit: 3,
+  mcpContextNoteLimit: 0,
   securityBlockedPaths: [
     ".obsidian/",
     ".claude/",

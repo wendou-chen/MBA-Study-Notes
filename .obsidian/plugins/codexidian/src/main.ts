@@ -19,12 +19,12 @@ import {
   DEFAULT_SETTINGS,
   type ApprovalDecision,
   type ApprovalRequest,
-  AVAILABLE_MODELS,
   type CodexidianSettings,
   EFFORT_OPTIONS,
   isApprovalMode,
   type McpToolCallRequest,
   type McpToolCallResult,
+  normalizeModelOverride,
   type UserInputRequest,
   type UserInputResponse,
 } from "./types";
@@ -130,6 +130,30 @@ export default class CodexidianPlugin extends Plugin {
       return view;
     }
     return null;
+  }
+
+  async applyRuntimeSettingsChange(options: { restartClient?: boolean } = {}): Promise<void> {
+    this.settings.lastThreadId = "";
+    this.client.setThreadId(null);
+
+    const view = this.getOpenView();
+    view?.clearActiveConversationThread(t("messageRuntimeReset"));
+    view?.refreshModelSelectOptions();
+
+    await this.saveSettings();
+
+    if (options.restartClient) {
+      await this.client.restart();
+    }
+
+    this.refreshStatus();
+  }
+
+  async updateModelOverride(value: string): Promise<string> {
+    const normalized = normalizeModelOverride(value);
+    this.settings.model = normalized;
+    await this.applyRuntimeSettingsChange();
+    return normalized;
   }
 
   private async handleApprovalRequest(request: ApprovalRequest): Promise<ApprovalDecision> {
@@ -302,17 +326,28 @@ export default class CodexidianPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     const loaded = (await this.loadData()) as Partial<CodexidianSettings> | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded ?? {});
+    let needsSave = false;
+
     if (!isLocale(this.settings.locale)) {
       this.settings.locale = DEFAULT_SETTINGS.locale;
+      needsSave = true;
     }
     setLocale(this.settings.locale);
 
     if (!this.settings.workingDirectory.trim()) {
       this.settings.workingDirectory = this.getVaultBasePath();
+      needsSave = true;
+    }
+
+    const normalizedModel = normalizeModelOverride(this.settings.model);
+    if (normalizedModel !== this.settings.model) {
+      this.settings.model = normalizedModel;
+      needsSave = true;
     }
 
     if (this.settings.contextWindowSize !== 128 && this.settings.contextWindowSize !== 400) {
       this.settings.contextWindowSize = DEFAULT_SETTINGS.contextWindowSize;
+      needsSave = true;
     }
     if (!isApprovalMode(this.settings.approvalMode)) {
       const legacyModeRaw = String((loaded as any)?.collaborationMode ?? "").trim().toLowerCase();
@@ -323,24 +358,45 @@ export default class CodexidianPlugin extends Plugin {
       )
         ? DEFAULT_SETTINGS.approvalMode
         : DEFAULT_SETTINGS.approvalMode;
+      needsSave = true;
     }
 
     if (!Array.isArray(this.settings.securityBlockedPaths)) {
       this.settings.securityBlockedPaths = [...DEFAULT_SETTINGS.securityBlockedPaths];
+      needsSave = true;
     } else {
-      this.settings.securityBlockedPaths = this.settings.securityBlockedPaths
+      const normalizedBlockedPaths = this.settings.securityBlockedPaths
         .map((pattern) => String(pattern).trim())
         .filter((pattern) => pattern.length > 0);
+      if (normalizedBlockedPaths.length !== this.settings.securityBlockedPaths.length) {
+        needsSave = true;
+      }
+      this.settings.securityBlockedPaths = normalizedBlockedPaths;
     }
 
     if (typeof this.settings.enableReviewPane !== "boolean") {
       this.settings.enableReviewPane = DEFAULT_SETTINGS.enableReviewPane;
+      needsSave = true;
     }
 
-    this.settings.allowRules = this.normalizeAllowRules(this.settings.allowRules);
+    const normalizedAllowRules = this.normalizeAllowRules(this.settings.allowRules);
+    if (normalizedAllowRules.length !== this.settings.allowRules.length) {
+      needsSave = true;
+    }
+    this.settings.allowRules = normalizedAllowRules;
 
     if (!Number.isFinite(this.settings.securityMaxNoteSize) || this.settings.securityMaxNoteSize <= 0) {
       this.settings.securityMaxNoteSize = DEFAULT_SETTINGS.securityMaxNoteSize;
+      needsSave = true;
+    }
+
+    if (!Number.isFinite(this.settings.mcpContextNoteLimit) || this.settings.mcpContextNoteLimit < 0) {
+      this.settings.mcpContextNoteLimit = DEFAULT_SETTINGS.mcpContextNoteLimit;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await this.saveSettings();
     }
   }
 
@@ -578,42 +634,70 @@ class CodexidianSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName(t("settingCodexCommandName"))
       .setDesc(t("settingCodexCommandDesc"))
-      .addText((text) =>
+      .addText((text) => {
         text
           .setPlaceholder("codex.cmd")
-          .setValue(this.plugin.settings.codexCommand)
-          .onChange(async (value) => {
-            this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
-            await this.plugin.saveSettings();
-          }),
-      );
+          .setValue(this.plugin.settings.codexCommand);
+        text.inputEl.addEventListener("change", () => {
+          void (async () => {
+            const nextValue = text.inputEl.value.trim() || DEFAULT_SETTINGS.codexCommand;
+            if (nextValue === this.plugin.settings.codexCommand) {
+              return;
+            }
+            this.plugin.settings.codexCommand = nextValue;
+            try {
+              await this.plugin.applyRuntimeSettingsChange({ restartClient: true });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(tf("noticeCodexError", { error: message }));
+            }
+          })();
+        });
+      });
 
     new Setting(containerEl)
       .setName(t("settingWorkingDirName"))
       .setDesc(t("settingWorkingDirDesc"))
-      .addText((text) =>
+      .addText((text) => {
         text
           .setPlaceholder(this.plugin.getVaultBasePath())
-          .setValue(this.plugin.settings.workingDirectory)
-          .onChange(async (value) => {
-            this.plugin.settings.workingDirectory = value.trim() || this.plugin.getVaultBasePath();
-            await this.plugin.saveSettings();
-          }),
-      );
+          .setValue(this.plugin.settings.workingDirectory);
+        text.inputEl.addEventListener("change", () => {
+          void (async () => {
+            const nextValue = text.inputEl.value.trim() || this.plugin.getVaultBasePath();
+            if (nextValue === this.plugin.settings.workingDirectory) {
+              return;
+            }
+            this.plugin.settings.workingDirectory = nextValue;
+            try {
+              await this.plugin.applyRuntimeSettingsChange({ restartClient: true });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(tf("noticeCodexError", { error: message }));
+            }
+          })();
+        });
+      });
 
     new Setting(containerEl)
       .setName(t("settingModelName"))
       .setDesc(t("settingModelDesc"))
-      .addDropdown((dropdown) => {
-        for (const m of AVAILABLE_MODELS) {
-          dropdown.addOption(m.value, m.label);
-        }
-        dropdown
-          .setValue(this.plugin.settings.model)
-          .onChange(async (value) => {
-            this.plugin.settings.model = value;
-            await this.plugin.saveSettings();
-          });
+      .addText((text) => {
+        text
+          .setPlaceholder("gpt-5.4")
+          .setValue(this.plugin.settings.model);
+        text.inputEl.addEventListener("change", () => {
+          void (async () => {
+            try {
+              const normalized = await this.plugin.updateModelOverride(text.inputEl.value);
+              text.setValue(normalized);
+              new Notice(tf("noticeModelSet", { model: normalized || t("defaultModel") }));
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(tf("noticeCodexError", { error: message }));
+            }
+          })();
+        });
       });
 
     new Setting(containerEl)
@@ -734,8 +818,12 @@ class CodexidianSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.approvalPolicy)
           .onChange(async (value) => {
             this.plugin.settings.approvalPolicy = value as CodexidianSettings["approvalPolicy"];
-            await this.plugin.saveSettings();
-            this.plugin.refreshStatus();
+            try {
+              await this.plugin.applyRuntimeSettingsChange();
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(tf("noticeCodexError", { error: message }));
+            }
           }),
       );
 
@@ -750,8 +838,12 @@ class CodexidianSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.sandboxMode)
           .onChange(async (value) => {
             this.plugin.settings.sandboxMode = value as CodexidianSettings["sandboxMode"];
-            await this.plugin.saveSettings();
-            this.plugin.refreshStatus();
+            try {
+              await this.plugin.applyRuntimeSettingsChange();
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(tf("noticeCodexError", { error: message }));
+            }
           }),
       );
 

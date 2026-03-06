@@ -1478,18 +1478,21 @@ export class CodexAppServerClient {
     };
 
     const primaryIsCmd = primary.toLowerCase().endsWith(".cmd");
+    const primaryLooksCompound = /\s/.test(primary);
 
     if (process.platform === "win32") {
       pushUnique(primary);
-      if (primaryIsCmd) {
-        pushUnique(primary.slice(0, -4));
-      } else {
-        pushUnique(`${primary}.cmd`);
+      if (!primaryLooksCompound) {
+        if (primaryIsCmd) {
+          pushUnique(primary.slice(0, -4));
+        } else {
+          pushUnique(`${primary}.cmd`);
+        }
       }
       pushUnique("codex.cmd");
       pushUnique("codex");
     } else {
-      if (primaryIsCmd) {
+      if (!primaryLooksCompound && primaryIsCmd) {
         pushUnique(primary.slice(0, -4));
       }
       pushUnique(primary);

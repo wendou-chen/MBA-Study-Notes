@@ -20,10 +20,11 @@ import type {
 } from "./types";
 import {
   APPROVAL_MODES,
-  AVAILABLE_MODELS,
+  CUSTOM_MODEL_OPTION_VALUE,
   EFFORT_OPTIONS,
   type ApprovalMode,
   type ThinkingEffort,
+  normalizeModelOverride,
 } from "./types";
 import { VaultFileAdapter } from "./storage/VaultFileAdapter";
 import { SessionStorage } from "./storage/SessionStorage";
@@ -211,13 +212,9 @@ export class CodexidianView extends ItemView {
     const modelGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
     this.modelLabelEl = modelGroup.createSpan({ cls: "codexidian-toolbar-label", text: t("model") });
     this.modelSelect = modelGroup.createEl("select", { cls: "codexidian-toolbar-select" });
-    for (const m of AVAILABLE_MODELS) {
-      const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
-      if (m.value === this.plugin.settings.model) opt.selected = true;
-    }
+    this.refreshModelSelectOptions();
     this.modelSelect.addEventListener("change", () => {
-      this.plugin.settings.model = this.modelSelect.value;
-      void this.plugin.saveSettings();
+      void this.handleModelSelection(this.modelSelect.value);
     });
 
     const effortGroup = toolbarEl.createDiv({ cls: "codexidian-toolbar-group" });
@@ -660,17 +657,72 @@ export class CodexidianView extends ItemView {
     new Notice(t("noticeClearedConversation"));
   }
 
-  private async cycleModelSetting(): Promise<void> {
-    const currentValue = this.plugin.settings.model;
-    const currentIndex = AVAILABLE_MODELS.findIndex((model) => model.value === currentValue);
-    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-    const nextModel = AVAILABLE_MODELS[(safeIndex + 1) % AVAILABLE_MODELS.length];
+  clearActiveConversationThread(systemMessage?: string): void {
+    const tab = this.tabManager?.getActiveTab();
+    if (!tab) {
+      return;
+    }
 
-    this.plugin.settings.model = nextModel.value;
-    this.modelSelect.value = nextModel.value;
-    await this.plugin.saveSettings();
+    const activeConversation = tab.conversationController.getActive();
+    const hadThreadId = Boolean(activeConversation?.threadId || this.plugin.client.getThreadId());
+
+    if (activeConversation) {
+      tab.conversationController.clearThreadId();
+    }
+
+    if (hadThreadId && systemMessage) {
+      this.appendSystemMessageToPanel(tab.panelEl, systemMessage);
+    }
+
+    this.refreshContextUsageFromActiveConversation();
     this.updateStatus();
-    new Notice(tf("noticeModelSet", { model: nextModel.label }));
+  }
+
+  refreshModelSelectOptions(): void {
+    this.modelSelect.empty();
+
+    const defaultOption = this.modelSelect.createEl("option", {
+      text: t("defaultModel"),
+      value: "",
+    });
+    defaultOption.selected = this.plugin.settings.model.length === 0;
+
+    const currentModel = normalizeModelOverride(this.plugin.settings.model);
+    if (currentModel) {
+      const currentOption = this.modelSelect.createEl("option", {
+        text: currentModel,
+        value: currentModel,
+      });
+      currentOption.selected = true;
+    }
+
+    this.modelSelect.createEl("option", {
+      text: t("customModelOption"),
+      value: CUSTOM_MODEL_OPTION_VALUE,
+    });
+
+    this.modelSelect.value = currentModel || "";
+  }
+
+  private async handleModelSelection(value: string): Promise<void> {
+    let nextValue = value;
+    if (value === CUSTOM_MODEL_OPTION_VALUE) {
+      const entered = window.prompt(t("modelPrompt"), this.plugin.settings.model);
+      if (entered === null) {
+        this.refreshModelSelectOptions();
+        return;
+      }
+      nextValue = entered;
+    }
+
+    const normalized = await this.plugin.updateModelOverride(nextValue);
+    this.refreshModelSelectOptions();
+    this.updateStatus();
+    new Notice(tf("noticeModelSet", { model: normalized || t("defaultModel") }));
+  }
+
+  private async cycleModelSetting(): Promise<void> {
+    await this.handleModelSelection(CUSTOM_MODEL_OPTION_VALUE);
   }
 
   private async cycleEffortSetting(): Promise<void> {
@@ -2561,6 +2613,7 @@ export class CodexidianView extends ItemView {
     this.updateHeaderButtons();
     this.inputEl.placeholder = t("askPlaceholder");
     this.modelLabelEl?.setText(t("model"));
+    this.refreshModelSelectOptions();
     this.effortLabelEl?.setText(t("effort"));
     this.modeLabelEl?.setText(t("mode"));
     this.updateModeButtonText();
