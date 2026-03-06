@@ -50,6 +50,7 @@ A native Obsidian chat workspace powered by **Codex app-server**, with multi-tab
 
 - Obsidian Desktop `>= 1.4.5`
 - Codex CLI installed and available in PATH (`codex` / `codex.cmd`)
+- Codex CLI authentication completed (recommended: run `codex login` once in your terminal)
 - Node.js `>= 18` (for building from source)
 
 ## Installation
@@ -93,7 +94,7 @@ All settings are available in `Settings -> Codexidian`.
 ### MCP
 - `Enable MCP vault tools`
 - `MCP endpoint` (optional)
-- `MCP API key` (optional)
+- `MCP API key` (optional, only for your MCP/Obsidian endpoint rather than the Codex model itself)
 - `Auto MCP context notes` limit
 
 ### Security

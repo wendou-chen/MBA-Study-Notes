@@ -75,6 +75,7 @@ export interface DailyPlan {
   date: string;
   tasks: DailyTask[];
   filePath: string;
+  isExample?: boolean;
 }
 
 export interface WeekDay {

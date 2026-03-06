@@ -5,6 +5,7 @@ export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access"
 export type ThinkingEffort = "low" | "medium" | "high" | "xhigh";
 export type ApprovalMode = "safe" | "prompt" | "yolo";
 export type AllowRuleType = "command" | "file_write" | "tool";
+export type ConfigValueSource = "override" | "command" | "profile" | "config" | "default";
 
 export interface AllowRule {
   id: string;
@@ -19,6 +20,8 @@ const LEGACY_MODEL_OVERRIDES = new Set([
   "gpt-5.3-codex",
 ]);
 
+const LEGACY_CONTEXT_WINDOW_OPTIONS = new Set([128, 400]);
+
 export const CUSTOM_MODEL_OPTION_VALUE = "__custom_model__";
 
 export function normalizeModelOverride(value: string | null | undefined): string {
@@ -32,6 +35,53 @@ export function normalizeModelOverride(value: string | null | undefined): string
   }
 
   return normalized;
+}
+
+export function normalizeContextWindowOverride(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  const normalized = Math.round(numeric);
+  if (normalized <= 0) {
+    return null;
+  }
+
+  return normalized;
+}
+
+export function migrateLegacyContextWindowSize(value: unknown): number | null {
+  const normalized = normalizeContextWindowOverride(value);
+  if (normalized === null) {
+    return null;
+  }
+
+  if (LEGACY_CONTEXT_WINDOW_OPTIONS.has(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+export function formatTokenWindow(tokens: number | null | undefined): string {
+  const normalized = normalizeContextWindowOverride(tokens);
+  if (normalized === null) {
+    return "0K";
+  }
+  return `${Math.round(normalized / 1000)}K`;
+}
+
+export function formatExactTokenCount(tokens: number | null | undefined): string {
+  const normalized = normalizeContextWindowOverride(tokens);
+  if (normalized === null) {
+    return "0 tokens";
+  }
+  return `${normalized.toLocaleString("en-US")} tokens`;
 }
 
 export const EFFORT_OPTIONS: { value: ThinkingEffort; label: string }[] = [
@@ -55,9 +105,9 @@ export interface CodexidianSettings {
   locale: Locale;
   codexCommand: string;
   workingDirectory: string;
-  model: string;
+  modelOverride: string;
   thinkingEffort: ThinkingEffort;
-  contextWindowSize: 128 | 400;
+  contextWindowOverrideTokens: number | null;
   approvalMode: ApprovalMode;
   allowRules: AllowRule[];
   approvalPolicy: ApprovalPolicy;
@@ -79,13 +129,24 @@ export interface CodexidianSettings {
   securityMaxNoteSize: number;
 }
 
+export interface ResolvedCodexCliConfig {
+  configPath: string;
+  profile: string | null;
+  model: string;
+  contextWindowTokens: number;
+  modelSource: ConfigValueSource;
+  contextWindowSource: ConfigValueSource;
+  lastLoadedAt: number;
+  warningMessage?: string | null;
+}
+
 export const DEFAULT_SETTINGS: CodexidianSettings = {
   locale: "zh",
   codexCommand: process.platform === "win32" ? "codex.cmd" : "codex",
   workingDirectory: "",
-  model: "",
+  modelOverride: "",
   thinkingEffort: "medium",
-  contextWindowSize: 128,
+  contextWindowOverrideTokens: null,
   approvalMode: "prompt",
   allowRules: [],
   approvalPolicy: "on-request",

@@ -1,4 +1,5 @@
 import { ChildProcess, spawn, spawnSync } from "child_process";
+import * as path from "path";
 
 import type {
   ApprovalDecision,
@@ -1506,21 +1507,31 @@ export class CodexAppServerClient {
   private buildSpawnEnv(): NodeJS.ProcessEnv {
     const basePath = process.env.PATH ?? "";
     const delimiter = process.platform === "win32" ? ";" : ":";
+    const homeDir = process.env.USERPROFILE ?? process.env.HOME ?? "";
+    const appData = process.env.APPDATA ?? "";
+    const localAppData = process.env.LOCALAPPDATA ?? "";
+    const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
+    const programFilesX86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)";
+    const nvmBin = process.env.NVM_BIN ?? "";
+
     const extras = process.platform === "win32"
       ? [
-        "C:\\Program Files\\nodejs",
-        "C:\\Users\\admin\\AppData\\Roaming\\npm",
+        path.join(programFiles, "nodejs"),
+        path.join(programFilesX86, "nodejs"),
+        appData ? path.join(appData, "npm") : "",
+        localAppData ? path.join(localAppData, "Programs", "nodejs") : "",
+        homeDir ? path.join(homeDir, "AppData", "Roaming", "npm") : "",
       ]
       : [
         "/usr/local/bin",
         "/usr/bin",
-        "/home/mirror/.local/bin",
-        "/home/mirror/.nvm/versions/node/v22.14.0/bin",
+        homeDir ? path.join(homeDir, ".local", "bin") : "",
+        nvmBin,
       ];
 
     const merged = [...basePath.split(delimiter).filter((part) => part.trim().length > 0)];
     for (const part of extras) {
-      if (!merged.includes(part)) {
+      if (part && !merged.includes(part)) {
         merged.push(part);
       }
     }
@@ -1555,7 +1566,9 @@ export class CodexAppServerClient {
     }
 
     const failureMessage = failures.join(" | ");
-    throw new Error(`No usable codex command found. ${failureMessage}`);
+    throw new Error(
+      `No usable codex command found. Install Codex CLI, ensure codex is on PATH, and finish CLI login before using Codexidian. ${failureMessage}`,
+    );
   }
 
   private probeCommand(command: string, env: NodeJS.ProcessEnv, cwd: string): CommandProbeResult {

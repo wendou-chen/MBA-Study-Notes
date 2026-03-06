@@ -3,6 +3,7 @@ import type { DailyTask, DailyPlan, WeekDay } from './types';
 
 const TABLE_ROW_RE = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(⬜|✅)\s*\|/;
 const CHECKLIST_RE = /^- \[([ xX])\]\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/;
+const EXAMPLE_PLAN_NAME = '示例计划.md';
 
 export function parseDailyTasks(content: string): DailyTask[] {
   const lines = content.split('\n');
@@ -58,11 +59,29 @@ export function findDailyPlanFile(vault: Vault, date: string, planFolder: string
   return files.find(f => f.path.startsWith(prefix) && f.extension === 'md') ?? null;
 }
 
+export function findExamplePlanFile(vault: Vault, planFolder: string): TFile | null {
+  const examplePath = `${planFolder}/${EXAMPLE_PLAN_NAME}`;
+  const file = vault.getAbstractFileByPath(examplePath);
+  return file instanceof TFile ? file : null;
+}
+
 export async function loadDailyPlan(vault: Vault, date: string, planFolder: string): Promise<DailyPlan | null> {
   const file = findDailyPlanFile(vault, date, planFolder);
   if (!file) return null;
   const content = await vault.read(file);
   return { date, tasks: parseDailyTasks(content), filePath: file.path };
+}
+
+export async function loadExamplePlan(vault: Vault, planFolder: string): Promise<DailyPlan | null> {
+  const file = findExamplePlanFile(vault, planFolder);
+  if (!file) return null;
+  const content = await vault.read(file);
+  return {
+    date: EXAMPLE_PLAN_NAME,
+    tasks: parseDailyTasks(content),
+    filePath: file.path,
+    isExample: true,
+  };
 }
 
 export function getWeekDates(date: Date): Date[] {

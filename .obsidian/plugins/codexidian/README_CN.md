@@ -50,6 +50,7 @@
 
 - Obsidian Desktop `>= 1.4.5`
 - 已安装 Codex CLI，且命令可在 PATH 中找到（`codex` / `codex.cmd`）
+- 已完成 Codex CLI 登录/认证（推荐先在终端执行一次 `codex login`）
 - Node.js `>= 18`（仅开发/构建需要）
 
 ## 安装方式
@@ -93,7 +94,7 @@
 ### MCP
 - `Enable MCP vault tools`
 - `MCP endpoint`（可选）
-- `MCP API key`（可选）
+- `MCP API key`（可选，仅用于连接你自己的 MCP/Obsidian 接口，不是 Codex 模型密钥）
 - `Auto MCP context notes`（自动附加笔记数量）
 
 ### 安全

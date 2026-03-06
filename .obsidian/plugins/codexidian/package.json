@@ -14,5 +14,9 @@
     "obsidian": "^1.5.0",
     "tslib": "^2.6.0",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "string-argv": "^0.3.2"
   }
 }

@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf, TAbstractFile, debounce, Notice } from 'obsidi
 import { getDaysRemaining, getCurrentPhase, getPhaseProgress, getCurrentMonthMilestone } from './phases';
 import { SUBJECT_LABELS, FOCUS_SUBJECTS } from './types';
 import type { ViewMode, DailyPlan, FocusMode, TimerSnapshot, Subject } from './types';
-import { loadDailyPlan, loadWeekOverview, toggleTaskInContent } from './dailyParser';
+import { loadDailyPlan, loadExamplePlan, loadWeekOverview, toggleTaskInContent } from './dailyParser';
 import { TimerEngine, playSound } from './timerEngine';
 import type KaoyanCountdownPlugin from './main';
 
@@ -156,8 +156,17 @@ export class CountdownView extends ItemView {
     this.dailyPlan = await loadDailyPlan(this.app.vault, today, this.plugin.settings.planFolder);
 
     if (!this.dailyPlan) {
-      section.createEl('div', { cls: 'kc-empty', text: '今日暂无计划文件' });
+      this.dailyPlan = await loadExamplePlan(this.app.vault, this.plugin.settings.planFolder);
+    }
+
+    if (!this.dailyPlan) {
+      section.createEl('div', { cls: 'kc-empty', text: '今日暂无计划文件，请在考研计划目录创建今日计划或保留示例计划。' });
       return;
+    }
+
+    if (this.dailyPlan.isExample) {
+      const notice = section.createDiv({ cls: 'kc-empty' });
+      notice.setText('当前未找到今日计划，正在显示示例计划。复制示例计划到今天的日期文件后即可正式使用。');
     }
 
     const tasks = this.dailyPlan.tasks;

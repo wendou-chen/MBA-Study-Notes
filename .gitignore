@@ -1,19 +1,27 @@
-﻿# Obsidian local state
+# Obsidian local state
 .obsidian/workspace
 .obsidian/workspace-mobile
 .obsidian/workspace.json
 .obsidian/cache/
-.obsidian/community-plugins.json
+.obsidian/graph.json
+.obsidian/hotkeys.json
 .trash/
 
 # Plugin runtime/local data
 .obsidian/plugins/*/data.json
 .obsidian/plugins/copilot/
+.obsidian/plugins/error-collector/
+.obsidian/plugins/obsidian-excalidraw-plugin/
+.obsidian/plugins/obsidian-git/
+.obsidian/plugins/obsidian-style-settings/
+.obsidian/plugins/open-in-terminal/
+.obsidian/themes/
 .obsidian\workspace.json
 
 # Local agent/session state
 .ccb/
 .agent/
+.agents/
 .claude/
 .codex/
 .opencode/
@@ -22,9 +30,18 @@ CLAUDE.md
 .scripts/
 
 # Personal/private content
+Daily Notes/
+Excalidraw/
+Scripts/
+copilot/
+大唐杯题库/
+课程/
+论文日报/
+未命名.md
+CUsersadmin.claudepluginsmarketplacesclaude-plugins-official/
 copilot/copilot-conversations/
 考研数学/错题/
-考研数学/images
+考研数学/images/
 考研数学/习题集/
 *.pdf
 *.jpg
@@ -33,11 +50,16 @@ copilot/copilot-conversations/
 *.webp
 *.gif
 抖音素材/
-考研计划/
+考研计划/*
+!考研计划/README.md
+!考研计划/示例计划.md
 GitHub周刊/
+Templates/*
+!Templates/考研每日计划模板.md
 
 # Local security/runtime artifacts
 .env
+.env.local
 chrome-profile/
 .tmp/
 logs/

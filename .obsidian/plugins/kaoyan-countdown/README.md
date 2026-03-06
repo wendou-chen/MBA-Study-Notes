@@ -46,6 +46,9 @@ Open Settings → Kaoyan Countdown to configure:
 | 显示时间分配 | On | Show subject allocation in phase view |
 | 番茄钟时长 | 25 min | Pomodoro focus duration |
 | 短/长休息 | 5 / 15 min | Break durations |
+
+In the public template repository, if no dated file exists for today, the plugin can fall back to `考研计划/示例计划.md` so first-time users still see a working day view.
+
 ## Daily Plan File Format
 
 The plugin reads markdown files from your plan folder. Files should be named with a date prefix, e.g. `2026-03-01 周日计划.md`.
