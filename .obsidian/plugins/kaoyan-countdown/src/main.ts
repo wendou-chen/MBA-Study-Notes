@@ -32,6 +32,12 @@ export default class KaoyanCountdownPlugin extends Plugin {
       callback: () => this.saveCurrentProgress(),
     });
 
+    this.addCommand({
+      id: 'reset-problem-board',
+      name: '重置解题板',
+      callback: () => this.resetProblemBoard(),
+    });
+
     this.app.workspace.onLayoutReady(() => {
       if (this.app.workspace.getLeavesOfType(VIEW_TYPE_COUNTDOWN).length === 0) {
         this.activateView();
@@ -140,6 +146,71 @@ export default class KaoyanCountdownPlugin extends Plugin {
     this.settings.bookmarks = bookmarks;
     await this.saveSettings();
     this.refreshViews();
+  }
+
+  async resetProblemBoard() {
+    const boardPath = '考研数学/解题板.md';
+    const file = this.app.vault.getAbstractFileByPath(boardPath);
+
+    if (!file) {
+      new Notice('解题板文件不存在');
+      return;
+    }
+
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const template = `---
+tags: [数学, 解题]
+date: ${dateStr}
+---
+
+**📝 题目**
+
+
+**🏷️ 知识点 / 题型**
+
+
+**📌 已知条件与目标**
+
+
+**🧠 通用解法框架**
+
+
+**🔎 本题的特殊性**
+
+
+**🧩 详细解答**
+
+
+**⚠️ 易错点**
+
+
+**🧪 延伸训练建议**
+
+
+---
+
+## 📥 收录到错题本？
+- [ ] 收录到错题本
+
+**掌握度**（勾选一项）：
+- [ ] 🟢 完全掌握
+- [ ] 🟡 需要复习
+- [ ] 🔴 仍有疑问
+
+---
+
+## 🤔 疑难辨析
+`;
+
+    try {
+      await this.app.vault.modify(file as any, template);
+      new Notice('✅ 解题板已重置');
+    } catch (error) {
+      new Notice('重置解题板失败');
+      console.error(error);
+    }
   }
 
   async loadSettings() {
