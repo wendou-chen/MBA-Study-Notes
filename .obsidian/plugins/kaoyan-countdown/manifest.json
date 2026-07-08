@@ -1,0 +1,11 @@
+{
+  "id": "kaoyan-countdown",
+  "name": "Kaoyan Countdown",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Display a countdown to the Chinese Postgraduate Entrance Exam with phase tracking, daily plans, and focus timer.",
+  "author": "Wendou Chen",
+  "authorUrl": "https://github.com/wendou-chen",
+  "main": "main.js",
+  "isDesktopOnly": false
+}

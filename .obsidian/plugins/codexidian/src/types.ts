@@ -1,0 +1,374 @@
+import type { Locale } from "./i18n";
+import type { CodexRuntimeStatus } from "./config/CodexRuntimeStatus";
+
+export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never";
+export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+export type ThinkingEffort = "low" | "medium" | "high" | "xhigh";
+export type ApprovalMode = "safe" | "prompt" | "yolo";
+export type AllowRuleType = "command" | "file_write" | "tool";
+export type ConfigValueSource = "override" | "command" | "profile" | "config" | "default";
+
+export interface AllowRule {
+  id: string;
+  type: AllowRuleType;
+  pattern: string;
+  createdAt: number;
+}
+
+const LEGACY_MODEL_OVERRIDES = new Set([
+  "codex-5.3",
+  "gpt-5.2",
+  "gpt-5.3-codex",
+]);
+
+const LEGACY_CONTEXT_WINDOW_OPTIONS = new Set([128, 400]);
+
+export const CUSTOM_MODEL_OPTION_VALUE = "__custom_model__";
+
+export function normalizeModelOverride(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (LEGACY_MODEL_OVERRIDES.has(normalized.toLowerCase())) {
+    return "";
+  }
+
+  return normalized;
+}
+
+export function normalizeContextWindowOverride(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  const normalized = Math.round(numeric);
+  if (normalized <= 0) {
+    return null;
+  }
+
+  return normalized;
+}
+
+export function migrateLegacyContextWindowSize(value: unknown): number | null {
+  const normalized = normalizeContextWindowOverride(value);
+  if (normalized === null) {
+    return null;
+  }
+
+  if (LEGACY_CONTEXT_WINDOW_OPTIONS.has(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+export function formatTokenWindow(tokens: number | null | undefined): string {
+  const normalized = normalizeContextWindowOverride(tokens);
+  if (normalized === null) {
+    return "0K";
+  }
+  return `${Math.round(normalized / 1000)}K`;
+}
+
+export function formatExactTokenCount(tokens: number | null | undefined): string {
+  const normalized = normalizeContextWindowOverride(tokens);
+  if (normalized === null) {
+    return "0 tokens";
+  }
+  return `${normalized.toLocaleString("en-US")} tokens`;
+}
+
+export const EFFORT_OPTIONS: { value: ThinkingEffort; label: string }[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra High" },
+];
+
+export const APPROVAL_MODES: { value: ApprovalMode; label: string; description: string }[] = [
+  { value: "safe", label: "Safe", description: "prompt-free decline" },
+  { value: "prompt", label: "Prompt", description: "ask in transcript" },
+  { value: "yolo", label: "Yolo", description: "auto-approve" },
+];
+
+export function isApprovalMode(value: string): value is ApprovalMode {
+  return APPROVAL_MODES.some((mode) => mode.value === value);
+}
+
+export interface CodexidianSettings {
+  locale: Locale;
+  codexCommand: string;
+  workingDirectory: string;
+  modelOverride: string;
+  thinkingEffort: ThinkingEffort;
+  contextWindowOverrideTokens: number | null;
+  approvalMode: ApprovalMode;
+  allowRules: AllowRule[];
+  approvalPolicy: ApprovalPolicy;
+  sandboxMode: SandboxMode;
+  autoApproveRequests: boolean;
+  persistThread: boolean;
+  lastThreadId: string;
+  maxTabs: number;
+  enableContextInjection: boolean;
+  enableSelectionPolling: boolean;
+  enableReviewPane: boolean;
+  enableMcp: boolean;
+  mcpEndpoint: string;
+  mcpApiKey: string;
+  mcpContextNoteLimit: number;
+  // Security
+  securityBlockedPaths: string[];
+  securityRequireApprovalForWrite: boolean;
+  securityMaxNoteSize: number;
+}
+
+export interface ResolvedCodexCliConfig {
+  configPath: string;
+  profile: string | null;
+  model: string;
+  contextWindowTokens: number;
+  modelSource: ConfigValueSource;
+  contextWindowSource: ConfigValueSource;
+  runtimeStatus: CodexRuntimeStatus;
+  lastLoadedAt: number;
+  warningMessage?: string | null;
+}
+
+export const DEFAULT_SETTINGS: CodexidianSettings = {
+  locale: "zh",
+  codexCommand: process.platform === "win32" ? "codex.cmd" : "codex",
+  workingDirectory: "",
+  modelOverride: "",
+  thinkingEffort: "medium",
+  contextWindowOverrideTokens: null,
+  approvalMode: "prompt",
+  allowRules: [],
+  approvalPolicy: "on-request",
+  sandboxMode: "workspace-write",
+  autoApproveRequests: true,
+  persistThread: true,
+  lastThreadId: "",
+  maxTabs: 5,
+  enableContextInjection: true,
+  enableSelectionPolling: true,
+  enableReviewPane: false,
+  enableMcp: false,
+  mcpEndpoint: "http://127.0.0.1:27124",
+  mcpApiKey: "",
+  mcpContextNoteLimit: 0,
+  securityBlockedPaths: [
+    ".obsidian/",
+    ".claude/",
+    ".codex/",
+    ".agent/",
+    ".env",
+    "*.secret",
+  ],
+  securityRequireApprovalForWrite: true,
+  securityMaxNoteSize: 500,
+};
+
+export interface TurnResult {
+  threadId: string;
+  turnId: string;
+  status: string;
+  errorMessage?: string;
+}
+
+export interface ToolStartInfo {
+  turnId: string;
+  itemId: string;
+  type: string;
+  name?: string;
+  command?: string;
+  filePath?: string;
+}
+
+export interface ToolCompleteInfo {
+  turnId: string;
+  itemId: string;
+  type: string;
+  status: string;
+  name?: string;
+  command?: string;
+  filePath?: string;
+}
+
+export interface TurnHandlers {
+  onDelta?: (delta: string) => void;
+  onToolDelta?: (delta: string) => void;
+  onSystem?: (message: string) => void;
+  onToolStart?: (info: ToolStartInfo) => void;
+  onToolComplete?: (info: ToolCompleteInfo) => void;
+  onThinkingDelta?: (delta: string) => void;
+}
+
+export interface StatusEntry {
+  id: string;
+  type: "tool_call" | "thinking" | "subagent" | "info";
+  label: string;
+  detail?: string;
+  status: "running" | "completed" | "failed";
+  timestamp: number;
+  duration?: number;
+}
+
+export type TurnStatus = "idle" | "thinking" | "streaming" | "tool_calling" | "waiting_approval";
+
+export interface ReviewComment {
+  id: string;
+  scope: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface DiffEntry {
+  filePath: string;
+  status: "added" | "modified" | "deleted";
+  summary?: string;
+}
+
+export interface PlanStep {
+  id: string;
+  index: number;
+  description: string;
+  status: "pending" | "approved" | "executing" | "completed" | "failed" | "skipped";
+}
+
+export interface PlanUpdate {
+  planId: string;
+  title: string;
+  steps: PlanStep[];
+  status: "proposed" | "approved" | "in_progress" | "completed";
+}
+
+export interface McpToolCallRequest {
+  requestId: string | number;
+  name: string;
+  arguments: Record<string, unknown>;
+  rawParams: unknown;
+}
+
+export interface McpToolCallResult {
+  success: boolean;
+  contentItems: Array<{ type: "inputText"; text: string }>;
+  isError?: boolean;
+  error?: string;
+  reason?: string;
+}
+
+export interface SlashCommand {
+  name: string;
+  label: string;
+  description: string;
+  icon?: string;
+  execute: () => void | Promise<void>;
+}
+
+export interface ApprovalRequest {
+  requestId: string | number;
+  type: "commandExecution" | "fileChange" | "execCommand" | "applyPatch";
+  command?: string;
+  filePath?: string;
+  cwd?: string;
+  params?: any;
+}
+
+export type ApprovalDecision = "accept" | "decline";
+
+export interface UserInputRequest {
+  requestId: string | number;
+  questions: Array<{ id: string; text?: string; options?: Array<{ label: string }> }>;
+}
+
+export interface UserInputResponse {
+  answers: Record<string, { answers: string[] }>;
+}
+
+// --- Conversation persistence ---
+
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  lastResponseAt?: number;
+  messageCount: number;
+  preview: string;
+  threadId?: string;
+  archived?: boolean;
+  pinned?: boolean;
+  tags?: string[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  lastResponseAt?: number;
+  threadId?: string;
+  archived?: boolean;
+  pinned?: boolean;
+  tags?: string[];
+  messages: ChatMessage[];
+}
+
+export type ConversationListFilter = "all" | "active" | "archived" | "pinned";
+
+export interface ChatMessageImage {
+  name: string;
+  dataUrl: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+  images?: ChatMessageImage[];
+}
+
+// --- Tabs ---
+
+export interface TabState {
+  tabId: string;
+  conversationId: string | null;
+}
+
+export interface TabManagerState {
+  openTabs: TabState[];
+  activeTabId: string | null;
+}
+
+// --- Editor context ---
+
+export interface EditorContext {
+  notePath: string;
+  mode: "selection";
+  selectedText: string;
+  lineCount: number;
+  startLine: number;
+}
+
+// --- ID generators ---
+
+export function generateConversationId(): string {
+  return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+export function generateMessageId(): string {
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function generateTabId(): string {
+  return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}

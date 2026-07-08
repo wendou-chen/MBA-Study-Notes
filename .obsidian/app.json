@@ -1,0 +1,8 @@
+{
+  "promptDelete": false,
+  "newFileLocation": "folder",
+  "userIgnoreFilters": [
+    "logs/"
+  ],
+  "attachmentFolderPath": "attachments"
+}

@@ -1,0 +1,83 @@
+# Obsidian local state
+.obsidian/workspace
+.obsidian/workspace-mobile
+.obsidian/workspace.json
+.obsidian/cache/
+.obsidian/graph.json
+.obsidian/hotkeys.json
+.trash/
+
+# Plugin runtime/local data
+.obsidian/plugins/*/data.json
+.obsidian/plugins/claudian/
+.obsidian/plugins/copilot/
+.obsidian/plugins/error-collector/
+.obsidian/plugins/obsidian-excalidraw-plugin/
+.obsidian/plugins/obsidian-git/
+.obsidian/plugins/obsidian-local-rest-api/
+.obsidian/plugins/obsidian-style-settings/
+.obsidian/plugins/open-in-terminal/
+.obsidian/themes/
+
+# Local agent/session state
+.ccb/
+.agent/
+.agents/
+.claude/
+.codex/
+.opencode/
+.codexidian/
+CLAUDE.md
+AGENTS.md
+.scripts/
+.reasonix/
+.learning/
+.cheat-cache/
+.cheat-hooks/
+skills/
+.../
+%SystemDrive%/
+
+# Personal/private content
+Daily Notes/
+Excalidraw/
+/Scripts/
+copilot/
+community/
+Templates/
+考研数学/
+考研英语/
+考研计划/
+大唐杯题库/
+课程/
+论文日报/
+未命名.md
+copilot/copilot-conversations/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.zip
+抖音素材/
+GitHub周刊/
+
+# Local security/runtime artifacts
+.env
+.env.local
+chrome-profile/
+.tmp/
+logs/
+*.log
+
+# System junk
+Thumbs.db
+.DS_Store
+未命名*.base
+
+# Common build/runtime
+__pycache__/
+*.pyc
+node_modules/
+.pytest_cache/

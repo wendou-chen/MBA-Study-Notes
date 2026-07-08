@@ -1,0 +1,10 @@
+{
+  "id": "outline-markdown-export",
+  "name": "Bookmarked PDF Export",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Export Obsidian notes to PDFs with native bookmarks generated from Markdown headings.",
+  "author": "Wendou Chen",
+  "main": "main.js",
+  "isDesktopOnly": false
+}

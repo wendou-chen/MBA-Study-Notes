@@ -1,0 +1,8 @@
+node_modules/
+data.json
+*.js.map
+
+# Build artifacts that can be regenerated (keep main.js for Obsidian)
+CodexAppServerClient.js
+CodexidianView.js
+types.js

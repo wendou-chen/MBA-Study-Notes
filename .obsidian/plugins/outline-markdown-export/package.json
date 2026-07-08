@@ -1,0 +1,38 @@
+{
+  "name": "outline-markdown-export",
+  "version": "1.0.0",
+  "description": "Export Obsidian notes to PDFs with native bookmarks generated from Markdown headings.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:wendou-chen/Obsidian-export-pdf-bookmarked.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wendou-chen/Obsidian-export-pdf-bookmarked/issues"
+  },
+  "homepage": "https://github.com/wendou-chen/Obsidian-export-pdf-bookmarked#readme",
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "markdown",
+    "pdf",
+    "bookmarks",
+    "outline"
+  ],
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs",
+    "test": "node tests/outlineMarkdown.test.mjs"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "builtin-modules": "^5.3.0",
+    "esbuild": "^0.28.1",
+    "obsidian": "^1.13.1",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3"
+  }
+}
